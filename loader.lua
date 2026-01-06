@@ -19,7 +19,11 @@ local CONFIG = {
     
     -- WEBHOOK (HWID gönderimi için)
     WEBHOOK_URL = "https://discord.com/api/webhooks/1458094582741864541/JMdoGTJoJ1iyDJ1cxZF12bSzD0SfkuYO4WxKODhN3laVF-zlUT8oAcrb-N1aUMLEr2if", -- ← Discord webhook URL'nizi buraya
-    WEBHOOK_ENABLED = true,                        -- ← false yaparak kapatabilirsiniz
+    WEBHOOK_ENABLED = false,                        -- ← false yaparak kapatabilirsiniz
+    
+    -- ALTERNATIVE: Pastebin ile HWID gönderimi (Webhook çalışmazsa)
+    PASTEBIN_ENABLED = true,                      -- ← true yapın webhook yerine pastebin kullanmak için
+    PASTEBIN_API_KEY = "eBlnuiNQCLH6KZ2iaxIGtWiiZULxrUED",    -- ← Pastebin API key
     
     -- DEBUG MODE
     DEBUG_MODE = true  -- ← false yaparak debug mesajlarını kapatın
@@ -193,6 +197,11 @@ end
 local function sendWebhook(hwid, userKey, keyInfo, status)
     if not CONFIG.WEBHOOK_ENABLED or CONFIG.WEBHOOK_URL == "YOUR_DISCORD_WEBHOOK_URL_HERE" then
         DebugPrint("⚠️ Webhook disabled or not configured")
+        
+        -- Try alternative method
+        if CONFIG.PASTEBIN_ENABLED then
+            sendToPastebin(hwid, userKey, keyInfo, status)
+        end
         return
     end
     
@@ -201,39 +210,53 @@ local function sendWebhook(hwid, userKey, keyInfo, status)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
     
+    -- Safe string conversion
+    local function safeStr(val)
+        if val == nil then
+            return "N/A"
+        end
+        return tostring(val)
+    end
+    
+    -- Build webhook payload
+    local tierInfo = keyInfo and safeStr(keyInfo.tier) or "N/A"
+    local expiresInfo = keyInfo and safeStr(keyInfo.expires) or "N/A"
+    local statusText = status == "success" and "Key Activated Successfully" or (status == "error" and "Activation Failed" or "Already Activated")
+    local colorCode = status == "success" and 65280 or (status == "error" and 16711680 or 16776960)
+    
     local embed = {
         ["embeds"] = {{
             ["title"] = "🔑 New Key Activation",
-            ["color"] = status == "success" and 65280 or (status == "error" and 16711680 or 16776960),
+            ["color"] = colorCode,
             ["fields"] = {
                 {
                     ["name"] = "👤 Player",
-                    ["value"] = LocalPlayer.Name .. " (@" .. LocalPlayer.UserId .. ")",
+                    ["value"] = safeStr(LocalPlayer.Name) .. " (@" .. safeStr(LocalPlayer.UserId) .. ")",
                     ["inline"] = true
                 },
                 {
                     ["name"] = "🎮 Game",
-                    ["value"] = "PlaceId: " .. game.PlaceId,
+                    ["value"] = "PlaceId: " .. safeStr(game.PlaceId),
                     ["inline"] = true
                 },
                 {
                     ["name"] = "🔑 Key",
-                    ["value"] = "```" .. userKey .. "```",
+                    ["value"] = "```" .. safeStr(userKey) .. "```",
                     ["inline"] = false
                 },
                 {
                     ["name"] = "🔐 HWID",
-                    ["value"] = "```" .. hwid .. "```",
+                    ["value"] = "```" .. safeStr(hwid) .. "```",
                     ["inline"] = false
                 },
                 {
                     ["name"] = "📊 Key Info",
-                    ["value"] = keyInfo and ("Tier: " .. keyInfo.tier .. "\nExpires: " .. keyInfo.expires) or "N/A",
+                    ["value"] = "Tier: " .. tierInfo .. "\nExpires: " .. expiresInfo,
                     ["inline"] = false
                 },
                 {
                     ["name"] = "✅ Status",
-                    ["value"] = status == "success" and "Key Activated Successfully" or (status == "error" and "Activation Failed" or "Already Activated"),
+                    ["value"] = statusText,
                     ["inline"] = false
                 }
             },
@@ -241,18 +264,94 @@ local function sendWebhook(hwid, userKey, keyInfo, status)
         }}
     }
     
-    local HttpService = game:GetService("HttpService")
-    local jsonData = HttpService:JSONEncode(embed)
-    
     local success, result = pcall(function()
-        local response = game:HttpPost(CONFIG.WEBHOOK_URL, jsonData, true, "application/json")
+        local HttpService = game:GetService("HttpService")
+        local jsonData = HttpService:JSONEncode(embed)
+        
+        -- Try HttpPost (may not work in Matcha)
+        local response = game:HttpPost(CONFIG.WEBHOOK_URL, jsonData)
         return response
     end)
     
     if success then
         DebugPrint("✅ Webhook sent successfully!")
+        notify("HWID sent to admin", "Webhook", 2)
     else
         DebugPrint("❌ Webhook failed: " .. tostring(result))
+        DebugPrint("⚠️ Note: HttpPost may not be supported in Matcha")
+        notify("Webhook not supported - HWID copied to clipboard", "Info", 3)
+        
+        -- Try alternative method
+        if CONFIG.PASTEBIN_ENABLED then
+            sendToPastebin(hwid, userKey, keyInfo, status)
+        end
+    end
+end
+
+local function sendToPastebin(hwid, userKey, keyInfo, status)
+    if not CONFIG.PASTEBIN_ENABLED or CONFIG.PASTEBIN_API_KEY == "YOUR_PASTEBIN_API_KEY" then
+        DebugPrint("⚠️ Pastebin disabled or not configured")
+        return
+    end
+    
+    DebugPrint("📤 Sending to Pastebin...")
+    
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    
+    local function safeStr(val)
+        return val and tostring(val) or "N/A"
+    end
+    
+    -- Build text content
+    local content = string.format([[
+========================================
+    MATCHA KEY ACTIVATION LOG
+========================================
+
+Player: %s (@%s)
+Game: PlaceId %s
+Time: %s
+
+Key: %s
+Tier: %s
+Expires: %s
+
+HWID: %s
+
+Status: %s
+========================================
+]], 
+        safeStr(LocalPlayer.Name),
+        safeStr(LocalPlayer.UserId),
+        safeStr(game.PlaceId),
+        os.date("%Y-%m-%d %H:%M:%S"),
+        safeStr(userKey),
+        keyInfo and safeStr(keyInfo.tier) or "N/A",
+        keyInfo and safeStr(keyInfo.expires) or "N/A",
+        safeStr(hwid),
+        status == "success" and "Activated" or "Failed"
+    )
+    
+    local success, result = pcall(function()
+        local url = "https://pastebin.com/api/api_post.php"
+        local postData = string.format(
+            "api_dev_key=%s&api_option=paste&api_paste_code=%s&api_paste_name=MATCHA_HWID_%s&api_paste_expire_date=1M",
+            CONFIG.PASTEBIN_API_KEY,
+            game:GetService("HttpService"):UrlEncode(content),
+            safeStr(LocalPlayer.Name)
+        )
+        
+        local response = game:HttpPost(url, postData)
+        return response
+    end)
+    
+    if success and result then
+        DebugPrint("✅ Pastebin created: " .. tostring(result))
+        notify("HWID log created", "Pastebin", 2)
+        setclipboard(tostring(result))
+    else
+        DebugPrint("❌ Pastebin failed: " .. tostring(result))
     end
 end
 

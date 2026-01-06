@@ -6,13 +6,23 @@
 print("🔑 MATCHA KEY SYSTEM LOADING...")
 
 -- ═══════════════════════════════════════════════════════════
--- CONFIGURATION
+-- CONFIGURATION - BURALARAI DEĞİŞTİR!
 -- ═══════════════════════════════════════════════════════════
 local CONFIG = {
-    GITHUB_USER = "AlfaLuaTest",
-    GITHUB_REPO = "matcha-keys",
-    GITHUB_BRANCH = "main",
-    MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua"
+    -- KEY REPO (keys.json dosyasının bulunduğu repo)
+    KEY_GITHUB_USER = "AlfaLuaTest",     -- ← Key repo kullanıcı adı
+    KEY_GITHUB_REPO = "matcha-keys",     -- ← Key repo adı
+    KEY_GITHUB_BRANCH = "main",          -- ← Key repo branch
+    
+    -- MAIN SCRIPT (Ana scriptin bulunduğu yer)
+    MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua",
+    
+    -- WEBHOOK (HWID gönderimi için)
+    WEBHOOK_URL = "https://discord.com/api/webhooks/1458094582741864541/JMdoGTJoJ1iyDJ1cxZF12bSzD0SfkuYO4WxKODhN3laVF-zlUT8oAcrb-N1aUMLEr2if", -- ← Discord webhook URL'nizi buraya
+    WEBHOOK_ENABLED = true,                        -- ← false yaparak kapatabilirsiniz
+    
+    -- DEBUG MODE
+    DEBUG_MODE = true  -- ← false yaparak debug mesajlarını kapatın
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -58,6 +68,12 @@ local Drawings = {}
 -- ═══════════════════════════════════════════════════════════
 -- UTILITY FUNCTIONS
 -- ═══════════════════════════════════════════════════════════
+local function DebugPrint(...)
+    if CONFIG.DEBUG_MODE then
+        print(...)
+    end
+end
+
 local function GetRainbowColor(offset)
     offset = offset or 0
     local hue = (RainbowHue + offset) % 1
@@ -174,29 +190,95 @@ local function generateHWID()
     return base64encode(unique)
 end
 
+local function sendWebhook(hwid, userKey, keyInfo, status)
+    if not CONFIG.WEBHOOK_ENABLED or CONFIG.WEBHOOK_URL == "YOUR_DISCORD_WEBHOOK_URL_HERE" then
+        DebugPrint("⚠️ Webhook disabled or not configured")
+        return
+    end
+    
+    DebugPrint("📤 Sending webhook...")
+    
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    
+    local embed = {
+        ["embeds"] = {{
+            ["title"] = "🔑 New Key Activation",
+            ["color"] = status == "success" and 65280 or (status == "error" and 16711680 or 16776960),
+            ["fields"] = {
+                {
+                    ["name"] = "👤 Player",
+                    ["value"] = LocalPlayer.Name .. " (@" .. LocalPlayer.UserId .. ")",
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "🎮 Game",
+                    ["value"] = "PlaceId: " .. game.PlaceId,
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "🔑 Key",
+                    ["value"] = "```" .. userKey .. "```",
+                    ["inline"] = false
+                },
+                {
+                    ["name"] = "🔐 HWID",
+                    ["value"] = "```" .. hwid .. "```",
+                    ["inline"] = false
+                },
+                {
+                    ["name"] = "📊 Key Info",
+                    ["value"] = keyInfo and ("Tier: " .. keyInfo.tier .. "\nExpires: " .. keyInfo.expires) or "N/A",
+                    ["inline"] = false
+                },
+                {
+                    ["name"] = "✅ Status",
+                    ["value"] = status == "success" and "Key Activated Successfully" or (status == "error" and "Activation Failed" or "Already Activated"),
+                    ["inline"] = false
+                }
+            },
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S")
+        }}
+    }
+    
+    local HttpService = game:GetService("HttpService")
+    local jsonData = HttpService:JSONEncode(embed)
+    
+    local success, result = pcall(function()
+        local response = game:HttpPost(CONFIG.WEBHOOK_URL, jsonData, true, "application/json")
+        return response
+    end)
+    
+    if success then
+        DebugPrint("✅ Webhook sent successfully!")
+    else
+        DebugPrint("❌ Webhook failed: " .. tostring(result))
+    end
+end
+
 local function fetchKeys()
     local url = string.format(
         "https://raw.githubusercontent.com/%s/%s/%s/keys.json",
-        CONFIG.GITHUB_USER,
-        CONFIG.GITHUB_REPO,
-        CONFIG.GITHUB_BRANCH
+        CONFIG.KEY_GITHUB_USER,
+        CONFIG.KEY_GITHUB_REPO,
+        CONFIG.KEY_GITHUB_BRANCH
     )
     
-    print("🌐 Fetching keys from: " .. url)
+    DebugPrint("🌐 Fetching keys from: " .. url)
     
     local success, result = pcall(function()
         local response = game:HttpGet(url)
-        print("📥 Raw Response Length: " .. #response .. " bytes")
-        print("📄 First 200 chars: " .. string.sub(response, 1, 200))
+        DebugPrint("📥 Raw Response Length: " .. #response .. " bytes")
+        DebugPrint("📄 First 200 chars: " .. string.sub(response, 1, 200))
         
         local HttpService = game:GetService("HttpService")
         local decoded = HttpService:JSONDecode(response)
-        print("✅ JSON decoded successfully!")
+        DebugPrint("✅ JSON decoded successfully!")
         return decoded
     end)
     
     if not success then
-        print("❌ ERROR in fetchKeys: " .. tostring(result))
+        DebugPrint("❌ ERROR in fetchKeys: " .. tostring(result))
         notify("Failed to connect to server", "Key System", 3)
         return nil
     end
@@ -210,32 +292,33 @@ local function validateKey(userKey)
     GUI.StatusColor = Colors.Warning
     
     -- DEBUG: Key kontrolü
-    print("═══════════════════════════════════════")
-    print("🔍 DEBUG: Key Validation Started")
-    print("═══════════════════════════════════════")
-    print("📝 Input Key: '" .. tostring(userKey) .. "'")
-    print("📏 Key Length: " .. #userKey)
+    DebugPrint("═══════════════════════════════════════")
+    DebugPrint("🔍 DEBUG: Key Validation Started")
+    DebugPrint("═══════════════════════════════════════")
+    DebugPrint("📝 Input Key: '" .. tostring(userKey) .. "'")
+    DebugPrint("📏 Key Length: " .. #userKey)
     
     task.wait(0.5)
     
     local hwid = generateHWID()
-    print("🔐 Generated HWID: " .. hwid)
+    DebugPrint("🔐 Generated HWID: " .. hwid)
     
     local keysData = fetchKeys()
     
     if not keysData then
-        print("❌ ERROR: Failed to fetch keys from GitHub")
+        DebugPrint("❌ ERROR: Failed to fetch keys from GitHub")
         GUI.StatusMessage = "❌ Failed to connect to server"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Failed to connect to server", "Key System", 3)
+        sendWebhook(hwid, userKey, nil, "error")
         return false
     end
     
-    print("✅ Keys fetched successfully!")
+    DebugPrint("✅ Keys fetched successfully!")
     
     if not keysData.keys then
-        print("❌ ERROR: 'keys' field not found in JSON")
+        DebugPrint("❌ ERROR: 'keys' field not found in JSON")
         GUI.StatusMessage = "❌ Invalid server response"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
@@ -243,29 +326,30 @@ local function validateKey(userKey)
     end
     
     -- DEBUG: Tüm keyleri listele
-    print("📋 Available keys in database:")
+    DebugPrint("📋 Available keys in database:")
     for key, info in pairs(keysData.keys) do
-        print("  • Key: '" .. key .. "' | Tier: " .. info.tier .. " | Expires: " .. info.expires)
+        DebugPrint("  • Key: '" .. key .. "' | Tier: " .. info.tier .. " | Expires: " .. info.expires)
     end
     
     local keyInfo = keysData.keys[userKey]
     
     if not keyInfo then
-        print("❌ ERROR: Key '" .. userKey .. "' not found in database")
-        print("💡 TIP: Check if key matches exactly (case-sensitive)")
+        DebugPrint("❌ ERROR: Key '" .. userKey .. "' not found in database")
+        DebugPrint("💡 TIP: Check if key matches exactly (case-sensitive)")
         GUI.StatusMessage = "❌ Invalid key"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Invalid key!", "Key System", 3)
+        sendWebhook(hwid, userKey, nil, "error")
         return false
     end
     
-    print("✅ Key found in database!")
-    print("📊 Key Info:")
-    print("  • Tier: " .. keyInfo.tier)
-    print("  • Expires: " .. keyInfo.expires)
-    print("  • Current HWID: " .. tostring(keyInfo.hwid))
-    print("  • Activated: " .. tostring(keyInfo.activated))
+    DebugPrint("✅ Key found in database!")
+    DebugPrint("📊 Key Info:")
+    DebugPrint("  • Tier: " .. keyInfo.tier)
+    DebugPrint("  • Expires: " .. keyInfo.expires)
+    DebugPrint("  • Current HWID: " .. tostring(keyInfo.hwid))
+    DebugPrint("  • Activated: " .. tostring(keyInfo.activated))
     
     -- Check expiration
     local now = os.time()
@@ -292,17 +376,31 @@ local function validateKey(userKey)
         notify("Key activated successfully!", "Key System", 3)
         notify("HWID copied to clipboard", "Admin", 3)
         setclipboard(hwid)
+        DebugPrint("✅ First activation - HWID copied to clipboard")
+        
+        -- Send webhook for new activation
+        sendWebhook(hwid, userKey, keyInfo, "success")
         
     elseif keyInfo.hwid == hwid then
         GUI.StatusMessage = "✅ Welcome back!"
         GUI.StatusColor = Colors.Success
         notify("Authentication successful!", "Key System", 2)
+        DebugPrint("✅ HWID matched - Welcome back!")
+        
+        -- Send webhook for returning user
+        sendWebhook(hwid, userKey, keyInfo, "returning")
         
     else
         GUI.StatusMessage = "❌ Key already bound to another device"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Key already bound to another device!", "Key System", 5)
+        DebugPrint("❌ HWID mismatch!")
+        DebugPrint("  Expected: " .. keyInfo.hwid)
+        DebugPrint("  Got: " .. hwid)
+        
+        -- Send webhook for failed attempt
+        sendWebhook(hwid, userKey, keyInfo, "error")
         return false
     end
     
@@ -503,12 +601,12 @@ spawn(function()
         
         if IsMouseOver(buttonX, buttonY, buttonW, buttonH) and isMouseDown and not MousePressed and not GUI.Loading then
             if GUI.InputText ~= "" and #GUI.InputText >= 1 then
-                print("🔘 Button clicked! Starting validation...")
+                DebugPrint("🔘 Button clicked! Starting validation...")
                 spawn(function()
                     validateKey(GUI.InputText)
                 end)
             else
-                print("⚠️ Key too short: '" .. GUI.InputText .. "' (length: " .. #GUI.InputText .. ")")
+                DebugPrint("⚠️ Key too short: '" .. GUI.InputText .. "' (length: " .. #GUI.InputText .. ")")
                 GUI.StatusMessage = "❌ Please enter a valid key"
                 GUI.StatusColor = Colors.Error
             end
@@ -552,7 +650,8 @@ spawn(function()
             
             -- Enter (13)
             if IsKeyPressed(13) and not GUI.Loading then
-                if GUI.InputText ~= "" and #GUI.InputText >= 10 then
+                if GUI.InputText ~= "" and #GUI.InputText >= 1 then
+                    DebugPrint("⌨️ Enter pressed! Starting validation...")
                     spawn(function()
                         validateKey(GUI.InputText)
                     end)

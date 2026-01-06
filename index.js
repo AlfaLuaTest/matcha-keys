@@ -321,7 +321,7 @@ app.get("/activation", async (req, res) => {
         }
         
         successfulWebhooks++;
-        console.log(`✅ Webhook sent: ${data.status} | Key: ${data.key.substring(0, 10)}...`);
+        console.log(`✅ Webhook sent: ${data.status} | Key: ${data.key}`);
         
         res.json({ 
             success: true,
@@ -552,7 +552,7 @@ app.listen(PORT, () => {
     console.log(`✅ Server: port ${PORT}`);
     console.log(`📡 Webhook: ${WEBHOOK_URL ? "✅" : "❌"}`);
     console.log(`🔧 GitHub: ${GITHUB_TOKEN ? "✅" : "❌"}`);
-    console.log(`🎮 Profiles: ${Object.keys(WEBHOOK_PROFILES).length} configured`);
+    console.log(`🎮 Profile: Single webhook configuration`);
     console.log(`⏰ Started: ${new Date().toISOString()}`);
     console.log("═══════════════════════════════════════════════════════");
 });

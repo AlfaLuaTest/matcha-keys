@@ -461,7 +461,7 @@ app.get("/unauthorized", async (req, res) => {
         });
         
         successfulWebhooks++;
-        console.log(`🚨 Unauthorized attempt: ${data.key.substring(0, 10)}...`);
+        console.log(`✅ Webhook sent: ${data.status} | Key: ${data.key}`);
         
         res.json({ success: true });
         

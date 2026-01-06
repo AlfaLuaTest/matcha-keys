@@ -182,13 +182,26 @@ local function fetchKeys()
         CONFIG.GITHUB_BRANCH
     )
     
+    print("🌐 Fetching keys from: " .. url)
+    
     local success, result = pcall(function()
         local response = game:HttpGet(url)
+        print("📥 Raw Response Length: " .. #response .. " bytes")
+        print("📄 First 200 chars: " .. string.sub(response, 1, 200))
+        
         local HttpService = game:GetService("HttpService")
-        return HttpService:JSONDecode(response)
+        local decoded = HttpService:JSONDecode(response)
+        print("✅ JSON decoded successfully!")
+        return decoded
     end)
     
-    return success and result or nil
+    if not success then
+        print("❌ ERROR in fetchKeys: " .. tostring(result))
+        notify("Failed to connect to server", "Key System", 3)
+        return nil
+    end
+    
+    return result
 end
 
 local function validateKey(userKey)
@@ -196,12 +209,22 @@ local function validateKey(userKey)
     GUI.StatusMessage = "Verifying key..."
     GUI.StatusColor = Colors.Warning
     
+    -- DEBUG: Key kontrolü
+    print("═══════════════════════════════════════")
+    print("🔍 DEBUG: Key Validation Started")
+    print("═══════════════════════════════════════")
+    print("📝 Input Key: '" .. tostring(userKey) .. "'")
+    print("📏 Key Length: " .. #userKey)
+    
     task.wait(0.5)
     
     local hwid = generateHWID()
+    print("🔐 Generated HWID: " .. hwid)
+    
     local keysData = fetchKeys()
     
-    if not keysData or not keysData.keys then
+    if not keysData then
+        print("❌ ERROR: Failed to fetch keys from GitHub")
         GUI.StatusMessage = "❌ Failed to connect to server"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
@@ -209,15 +232,40 @@ local function validateKey(userKey)
         return false
     end
     
+    print("✅ Keys fetched successfully!")
+    
+    if not keysData.keys then
+        print("❌ ERROR: 'keys' field not found in JSON")
+        GUI.StatusMessage = "❌ Invalid server response"
+        GUI.StatusColor = Colors.Error
+        GUI.Loading = false
+        return false
+    end
+    
+    -- DEBUG: Tüm keyleri listele
+    print("📋 Available keys in database:")
+    for key, info in pairs(keysData.keys) do
+        print("  • Key: '" .. key .. "' | Tier: " .. info.tier .. " | Expires: " .. info.expires)
+    end
+    
     local keyInfo = keysData.keys[userKey]
     
     if not keyInfo then
+        print("❌ ERROR: Key '" .. userKey .. "' not found in database")
+        print("💡 TIP: Check if key matches exactly (case-sensitive)")
         GUI.StatusMessage = "❌ Invalid key"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Invalid key!", "Key System", 3)
         return false
     end
+    
+    print("✅ Key found in database!")
+    print("📊 Key Info:")
+    print("  • Tier: " .. keyInfo.tier)
+    print("  • Expires: " .. keyInfo.expires)
+    print("  • Current HWID: " .. tostring(keyInfo.hwid))
+    print("  • Activated: " .. tostring(keyInfo.activated))
     
     -- Check expiration
     local now = os.time()
@@ -454,11 +502,13 @@ spawn(function()
         local buttonW, buttonH = GUI.Width - 40, 45
         
         if IsMouseOver(buttonX, buttonY, buttonW, buttonH) and isMouseDown and not MousePressed and not GUI.Loading then
-            if GUI.InputText ~= "" and #GUI.InputText >= 10 then
+            if GUI.InputText ~= "" and #GUI.InputText >= 1 then
+                print("🔘 Button clicked! Starting validation...")
                 spawn(function()
                     validateKey(GUI.InputText)
                 end)
             else
+                print("⚠️ Key too short: '" .. GUI.InputText .. "' (length: " .. #GUI.InputText .. ")")
                 GUI.StatusMessage = "❌ Please enter a valid key"
                 GUI.StatusColor = Colors.Error
             end

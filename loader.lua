@@ -7,12 +7,12 @@
 -- CONFIGURATION - BURALAEI DEĞİŞTİR!
 -- ═══════════════════════════════════════════════════
 local CONFIG = {
-    GITHUB_USER = "USERNAME",           -- ← GitHub kullanıcı adını buraya yaz
+    GITHUB_USER = "AlfaLuaTest",           -- ← GitHub kullanıcı adını buraya yaz
     GITHUB_REPO = "matcha-keys",        -- ← Repo adını buraya yaz
     GITHUB_BRANCH = "main",
     
     -- Ana scriptin URL'i (key doğrulandıktan sonra çalışacak)
-    MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/USERNAME/REPO/main/script.lua"  -- ← Buraya ana scriptin linkini yaz
+    MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua"  -- ← Buraya ana scriptin linkini yaz
 }
 
 -- ═══════════════════════════════════════════════════

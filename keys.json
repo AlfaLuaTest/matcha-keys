@@ -79,9 +79,24 @@
         "userId": "4018633058",
         "username": "GeneralTimeMermaid"
       }
+    },
+    "TQ2S-WQUW-HYQH-XR68": {
+      "hwid": null,
+      "expires": "3000-12-31",
+      "tier": "Premium",
+      "games": [
+        "2788229376"
+      ],
+      "activated": true,
+      "notes": "Da Hood - Purchased by GeneralTimeMermaid (4018633058)",
+      "created": "2026-01-06T20:13:27.395Z",
+      "purchaser": {
+        "userId": "4018633058",
+        "username": "GeneralTimeMermaid"
+      }
     }
   },
   "version": "3.0.0",
-  "last_update": "2026-01-06T20:12:18.140Z",
+  "last_update": "2026-01-06T20:13:27.395Z",
   "maintenance": false
 }

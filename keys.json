@@ -1,7 +1,7 @@
 {
   "keys": {
     "123456": {
-      "hwid": null,
+      "hwid": "MTQwNjk4MTA4OTUyNTc2LW5pbA==",
       "expires": "3000-12-31",
       "tier": "premium",
       "created": "2026-01-06",
@@ -56,7 +56,7 @@
     }
   },
   "version": "1.0.0",
-  "last_update": "2026-01-06T16:00:00Z",
+  "last_update": "2026-01-06T16:55:16.069Z",
   "maintenance": false,
   "info": {
     "total_keys": 6,
@@ -64,12 +64,3 @@
     "inactive_keys": 1
   }
 }
-
-
-
-
-
-
-
-
-

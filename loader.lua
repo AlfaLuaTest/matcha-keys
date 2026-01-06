@@ -395,13 +395,13 @@ local function validateKey(userKey)
     
     -- HWID binding
     if not keyInfo.hwid or keyInfo.hwid == "null" or keyInfo.hwid == "" then
-        -- First activation
+        -- First activation ONLY - HWID will be bound permanently
         GUI.StatusMessage = "[+] Key activated! Binding HWID..."
         GUI.StatusColor = Colors.Success
         notify("✅ Key activated!", "Key System", 3)
         
-        -- Update HWID in keys.json via webhook
-        DebugPrint("[*] Updating HWID in keys.json...")
+        -- Update HWID in keys.json via webhook (ONLY on first activation)
+        DebugPrint("[*] Updating HWID in keys.json (first activation)...")
         updateKeyHWID(userKey, hwid)
         
         setclipboard(hwid)
@@ -411,7 +411,7 @@ local function validateKey(userKey)
         GUI.Authenticated = true
         GUI.Visible = false
     else
-        -- Validate HWID
+        -- Validate HWID - NO UPDATES after initial binding
         local isValid, matchType = validateHWID(keyInfo.hwid, hwid, baseValue, userId)
         
         if isValid then
@@ -419,11 +419,9 @@ local function validateKey(userKey)
             GUI.StatusColor = Colors.Success
             notify("✅ Authentication successful!", "Key System", 2)
             
+            -- Just inform about match type, but DON'T update HWID
             if matchType == "userid_only" or matchType == "base_only" then
-                setclipboard(hwid)
-                notify("New HWID copied to clipboard", "Info", 2)
-                DebugPrint("[*] Updating HWID due to partial match...")
-                updateKeyHWID(userKey, hwid)
+                DebugPrint("[*] Partial HWID match detected:", matchType)
             end
             
             logActivation(userKey, hwid, keyInfo, "returning")

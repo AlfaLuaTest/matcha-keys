@@ -8,7 +8,7 @@
     },
     "2788229376": {
       "name": "Da Hood",
-      "url": "https://raw.githubusercontent.com/user/repo/main/dahood.lua",
+      "url": "https://raw.githubusercontent.com/orbiacc/SOUND-SPACE/refs/heads/main/Sound%20Space.lua",
       "enabled": true,
       "keys": ["DAHOOD-KEY-1", "DAHOOD-KEY-2"]
     },

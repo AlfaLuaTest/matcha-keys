@@ -1,0 +1,25 @@
+{
+  "keys": {
+    "MATCHA-TEST-1234-ABCD": {
+      "hwid": null,
+      "expires": "2026-12-31",
+      "tier": "premium",
+      "created": "2026-01-06",
+      "max_devices": 1,
+      "activated": false,
+      "notes": "Test key for demo"
+    },
+    "MATCHA-DEMO-5678-EFGH": {
+      "hwid": "Qk1TRVg0Nzg5MDEyMzQ1Njc=",
+      "expires": "2026-02-15",
+      "tier": "basic",
+      "created": "2026-01-05",
+      "max_devices": 1,
+      "activated": true,
+      "notes": "Already activated - bound to device"
+    }
+  },
+  "version": "1.0.0",
+  "last_update": "2026-01-06T10:00:00Z",
+  "maintenance": false
+}

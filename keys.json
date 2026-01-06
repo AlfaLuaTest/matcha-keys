@@ -1,4 +1,31 @@
 {
+  "scripts": {
+    "606849621": {
+      "name": "Jailbreak",
+      "url": "https://raw.githubusercontent.com/user/repo/main/jailbreak.lua",
+      "enabled": true,
+      "keys": ["JAILBREAK-KEY-1", "JAILBREAK-KEY-2"]
+    },
+    "2788229376": {
+      "name": "Da Hood",
+      "url": "https://raw.githubusercontent.com/user/repo/main/dahood.lua",
+      "enabled": true,
+      "keys": ["DAHOOD-KEY-1", "DAHOOD-KEY-2"]
+    },
+    "3233893879": {
+      "name": "Bad Business",
+      "url": "https://raw.githubusercontent.com/user/repo/main/combat.lua",
+      "enabled": true,
+      "keys": ["COMBAT-KEY-1"]
+    },
+    "default": {
+      "name": "Universal Script",
+      "url": "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua",
+      "enabled": true,
+      "keys": ["123456", "MATCHA-TEST-1234-ABCD"]
+    }
+  },
+  
   "keys": {
     "123456": {
       "hwid": "MTQwNjk4MTA4OTUyNTc2LW5pbA==",
@@ -7,43 +34,58 @@
       "created": "2026-01-06",
       "max_devices": 1,
       "activated": true,
-      "notes": "Active key - ready to use"
+      "allowed_scripts": ["default"],
+      "notes": "Universal key"
     },
-    "INACTIVE-KEY-TEST": {
+    "JAILBREAK-KEY-1": {
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "premium",
       "created": "2026-01-06",
       "max_devices": 1,
-      "activated": false,
-      "notes": "Inactive key - admin needs to activate"
+      "activated": true,
+      "allowed_scripts": ["606849621"],
+      "notes": "Jailbreak exclusive"
     },
-    "BOUND-KEY-EXAMPLE": {
+    "JAILBREAK-KEY-2": {
+      "hwid": null,
+      "expires": "2026-12-31",
+      "tier": "basic",
+      "created": "2026-01-06",
+      "max_devices": 1,
+      "activated": true,
+      "allowed_scripts": ["606849621"],
+      "notes": "Jailbreak basic tier"
+    },
+    "DAHOOD-KEY-1": {
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "premium",
-      "created": "2026-01-05",
+      "created": "2026-01-06",
       "max_devices": 1,
       "activated": true,
-      "notes": "Already bound to specific device"
+      "allowed_scripts": ["2788229376"],
+      "notes": "Da Hood exclusive"
     },
-    "EXPIRED-KEY-TEST": {
+    "DAHOOD-KEY-2": {
       "hwid": null,
-      "expires": "2025-01-01",
-      "tier": "basic",
-      "created": "2025-01-01",
+      "expires": "2026-12-31",
+      "tier": "premium",
+      "created": "2026-01-06",
       "max_devices": 1,
       "activated": true,
-      "notes": "Expired key"
+      "allowed_scripts": ["2788229376"],
+      "notes": "Da Hood premium"
     },
-    "MATCHA-DEMO-5678-EFGH": {
+    "COMBAT-KEY-1": {
       "hwid": null,
-      "expires": "2026-02-15",
-      "tier": "basic",
-      "created": "2026-01-05",
+      "expires": "2026-12-31",
+      "tier": "premium",
+      "created": "2026-01-06",
       "max_devices": 1,
       "activated": true,
-      "notes": "Demo key - bound to device"
+      "allowed_scripts": ["3233893879"],
+      "notes": "Combat game exclusive"
     },
     "MATCHA-TEST-1234-ABCD": {
       "hwid": null,
@@ -52,15 +94,27 @@
       "created": "2026-01-06",
       "max_devices": 1,
       "activated": true,
-      "notes": "Test key - ready for activation"
+      "allowed_scripts": ["default"],
+      "notes": "Universal test key"
+    },
+    "MULTI-ACCESS-KEY": {
+      "hwid": null,
+      "expires": "2026-12-31",
+      "tier": "vip",
+      "created": "2026-01-06",
+      "max_devices": 1,
+      "activated": true,
+      "allowed_scripts": ["606849621", "2788229376", "default"],
+      "notes": "Multi-game access"
     }
   },
-  "version": "1.0.0",
-  "last_update": "2026-01-06T16:59:56.518Z",
+  
+  "version": "2.0.0",
+  "last_update": "2026-01-06T17:30:00.000Z",
   "maintenance": false,
   "info": {
-    "total_keys": 6,
-    "active_keys": 5,
-    "inactive_keys": 1
+    "total_keys": 8,
+    "active_keys": 8,
+    "total_scripts": 4
   }
 }

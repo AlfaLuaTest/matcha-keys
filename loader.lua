@@ -364,7 +364,23 @@ local function getScriptForPlace(keysData, userKey, currentPlaceId)
         return nil, "Key configuration error"
     end
     
-    -- Check if current place is in allowed scripts
+    -- Get script configuration for current place
+    local scriptConfig = keysData.scripts[currentPlaceId]
+    
+    -- If no script found and game is unknown, reject immediately
+    if not scriptConfig then
+        local placeId, gameName = getGameInfo()
+        if gameName == "Unknown Game" then
+            return nil, "Game not supported"
+        end
+        scriptConfig = keysData.scripts["default"]
+    end
+    
+    if not scriptConfig or not scriptConfig.enabled then
+        return nil, "No script available for this game"
+    end
+    
+    -- Check if key is allowed for this specific script/game
     local isAllowed = false
     for _, allowedPlace in ipairs(keyInfo.allowed_scripts) do
         if allowedPlace == currentPlaceId or allowedPlace == "default" then
@@ -375,16 +391,6 @@ local function getScriptForPlace(keysData, userKey, currentPlaceId)
     
     if not isAllowed then
         return nil, "Key not valid for this game"
-    end
-    
-    -- Get script URL
-    local scriptConfig = keysData.scripts[currentPlaceId]
-    if not scriptConfig then
-        scriptConfig = keysData.scripts["default"]
-    end
-    
-    if not scriptConfig or not scriptConfig.enabled then
-        return nil, "No script available for this game"
     end
     
     return scriptConfig.url, scriptConfig.name
@@ -804,18 +810,112 @@ spawn(function()
 end)
 
 -- ===========================================================
+-- AUTO KEY CHECK
+-- ===========================================================
+local function checkStoredKeys()
+    local placeId, gameName = getGameInfo()
+    
+    -- Reject unknown games immediately
+    if gameName == "Unknown Game" then
+        notify("❌ Game not supported", "Matcha", 5)
+        UserPrint("[-] Game not supported")
+        GUI.StatusMessage = "[!] Game not supported"
+        GUI.StatusColor = Colors.Error
+        return false
+    end
+    
+    local hwid, baseValue, userId = generateHWID()
+    local keysData = fetchKeys()
+    
+    if not keysData or not keysData.keys then
+        return false
+    end
+    
+    -- Check all keys for auto-login
+    for keyName, keyInfo in pairs(keysData.keys) do
+        if keyInfo.hwid and keyInfo.hwid ~= "null" and keyInfo.hwid ~= "" then
+            local isValid, matchType = validateHWID(keyInfo.hwid, hwid, baseValue, userId)
+            
+            if isValid then
+                -- Check if key is activated
+                local isActivated = keyInfo.activated == true or keyInfo.activated == "true"
+                if not isActivated then
+                    continue
+                end
+                
+                -- Check expiration
+                local now = os.time()
+                local year, month, day = keyInfo.expires:match("(%d+)-(%d+)-(%d+)")
+                local expireTime = os.time({
+                    year = tonumber(year),
+                    month = tonumber(month),
+                    day = tonumber(day),
+                    hour = 23, min = 59, sec = 59
+                })
+                
+                if now > expireTime then
+                    continue
+                end
+                
+                -- Check if key is valid for this game
+                local scriptURL, scriptName = getScriptForPlace(keysData, keyName, placeId)
+                
+                if scriptURL then
+                    UserPrint("[+] Auto-login successful with key:", keyName)
+                    notify("✅ Auto-login: " .. scriptName, "Matcha", 3)
+                    
+                    GUI.Authenticated = true
+                    GUI.Visible = false
+                    
+                    logActivation(keyName, hwid, keyInfo, "returning")
+                    
+                    -- Load script
+                    task.wait(1)
+                    notify("Loading " .. scriptName .. "...", "Matcha", 2)
+                    
+                    for _, draw in ipairs(Drawings) do
+                        draw.Visible = false
+                    end
+                    
+                    local success, err = pcall(function()
+                        loadstring(game:HttpGet(scriptURL))()
+                    end)
+                    
+                    if success then
+                        notify("✅ " .. scriptName .. " loaded!", "Matcha", 3)
+                        UserPrint("[+] Script loaded successfully")
+                    else
+                        notify("❌ Failed to load script", "Matcha", 3)
+                        UserPrint("[!] Script load error:", err)
+                    end
+                    
+                    return true
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+-- ===========================================================
 -- INITIALIZATION
 -- ===========================================================
 local placeId, gameName = getGameInfo()
 UserPrint("[+] MATCHA KEY SYSTEM v2.3 LOADED")
 UserPrint("[+] Detected Game:", gameName, "(" .. placeId .. ")")
 
+-- Try auto-login first
 spawn(function()
     task.wait(0.5)
-    local hwid = generateHWID()
-    setclipboard(hwid)
-    DebugPrint("[+] HWID copied to clipboard")
-    notify("HWID copied | Game: " .. gameName, "Matcha", 3)
+    local success = checkStoredKeys()
+    
+    if not success then
+        -- Show GUI if auto-login fails
+        local hwid = generateHWID()
+        setclipboard(hwid)
+        DebugPrint("[+] HWID copied to clipboard")
+        notify("HWID copied | Game: " .. gameName, "Matcha", 3)
+        notify("Key System Loaded", "Matcha v2.3", 2)
+    end
 end)
-
-notify("Key System Loaded", "Matcha v2.3", 2)

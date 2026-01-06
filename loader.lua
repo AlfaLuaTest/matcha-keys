@@ -1,9 +1,7 @@
 -- ╔════════════════════════════════════════════════════╗
--- ║      MATCHA KEY SYSTEM v2.1 - Render Integration   ║
+-- ║      MATCHA KEY SYSTEM v2.2 - Render Integration   ║
 -- ║           Professional GUI + Cloud Webhook         ║
 -- ╚════════════════════════════════════════════════════╝
-
-print("[*] MATCHA KEY SYSTEM v2.1 LOADING...")
 
 -- ===========================================================
 -- CONFIGURATION - BURALARAI DEGISTIR!
@@ -133,7 +131,7 @@ local titleBg = CreateSquare()
 titleBg.Color = Color3.fromRGB(15, 15, 20)
 titleBg.Transparency = 0.98
 
-local titleText = CreateText("[*] MATCHA KEY SYSTEM v2.1", 20)
+local titleText = CreateText("[*] MATCHA KEY SYSTEM v2.2", 20)
 local subtitleText = CreateText("Enter your license key to continue", 13)
 
 local inputBg = CreateSquare()
@@ -249,15 +247,15 @@ local function sendToRender(endpoint, data)
     end)
     
     if success then
-        UserPrint("[+] Webhook sent successfully")
+        DebugPrint("[+] Webhook sent successfully")
         return true
     else
-        UserPrint("[!] Webhook failed:", result)
+        DebugPrint("[!] Webhook failed:", result)
         return false
     end
 end
 
-local function logActivation(key, hwid, keyInfo, status, matchType)
+local function logActivation(key, hwid, keyInfo, status)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
     
@@ -266,11 +264,9 @@ local function logActivation(key, hwid, keyInfo, status, matchType)
         hwid = hwid,
         status = status,
         player = LocalPlayer.Name,
-        userId = tostring(LocalPlayer.UserId),
         placeId = tostring(game.PlaceId),
         tier = keyInfo and keyInfo.tier or "N/A",
-        expires = keyInfo and keyInfo.expires or "N/A",
-        matchType = matchType or "N/A"
+        expires = keyInfo and keyInfo.expires or "N/A"
     }
     
     sendToRender("activation", data)
@@ -285,11 +281,24 @@ local function logUnauthorized(key, attemptedHWID, boundHWID)
         attemptedHWID = attemptedHWID,
         boundHWID = boundHWID,
         player = LocalPlayer.Name,
-        userId = tostring(LocalPlayer.UserId),
         placeId = tostring(game.PlaceId)
     }
     
     sendToRender("unauthorized", data)
+end
+
+local function updateKeyHWID(key, hwid)
+    if not CONFIG.WEBHOOK_ENABLED then
+        DebugPrint("Webhook disabled, cannot update HWID")
+        return false
+    end
+    
+    local data = {
+        key = key,
+        hwid = hwid
+    }
+    
+    return sendToRender("update-hwid", data)
 end
 
 -- ===========================================================
@@ -312,7 +321,7 @@ local function fetchKeys()
     end)
     
     if not success then
-        UserPrint("[!] Failed to fetch keys")
+        DebugPrint("[!] Failed to fetch keys")
         return nil
     end
     
@@ -324,11 +333,11 @@ local function validateKey(userKey)
     GUI.StatusMessage = "Verifying key..."
     GUI.StatusColor = Colors.Warning
     
-    UserPrint("[*] Validating key...")
+    DebugPrint("[*] Validating key...")
     task.wait(0.5)
     
     local hwid, baseValue, userId = generateHWID()
-    UserPrint("[*] HWID generated")
+    DebugPrint("[*] HWID generated")
     
     local keysData = fetchKeys()
     
@@ -336,7 +345,7 @@ local function validateKey(userKey)
         GUI.StatusMessage = "[!] Server connection failed"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
-        logActivation(userKey, hwid, nil, "error", "connection_failed")
+        logActivation(userKey, hwid, nil, "error")
         return false
     end
     
@@ -347,11 +356,11 @@ local function validateKey(userKey)
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Invalid key!", "Key System", 3)
-        logActivation(userKey, hwid, nil, "error", "invalid_key")
+        logActivation(userKey, hwid, nil, "error")
         return false
     end
     
-    UserPrint("[+] Key found - Tier:", keyInfo.tier)
+    DebugPrint("[+] Key found - Tier:", keyInfo.tier)
     
     -- Expiration check
     local now = os.time()
@@ -368,7 +377,7 @@ local function validateKey(userKey)
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Key expired!", "Key System", 3)
-        logActivation(userKey, hwid, keyInfo, "error", "expired")
+        logActivation(userKey, hwid, keyInfo, "error")
         return false
     end
     
@@ -380,20 +389,24 @@ local function validateKey(userKey)
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Key not activated by admin!", "Key System", 5)
-        logActivation(userKey, hwid, keyInfo, "error", "not_activated")
+        logActivation(userKey, hwid, keyInfo, "error")
         return false
     end
     
     -- HWID binding
     if not keyInfo.hwid or keyInfo.hwid == "null" or keyInfo.hwid == "" then
         -- First activation
-        GUI.StatusMessage = "[+] Key activated! Send HWID to admin"
+        GUI.StatusMessage = "[+] Key activated! Binding HWID..."
         GUI.StatusColor = Colors.Success
         notify("✅ Key activated!", "Key System", 3)
-        notify("HWID copied - Send to admin!", "Important", 5)
+        
+        -- Update HWID in keys.json via webhook
+        DebugPrint("[*] Updating HWID in keys.json...")
+        updateKeyHWID(userKey, hwid)
+        
         setclipboard(hwid)
         
-        logActivation(userKey, hwid, keyInfo, "success", "first_activation")
+        logActivation(userKey, hwid, keyInfo, "success")
         
         GUI.Authenticated = true
         GUI.Visible = false
@@ -409,9 +422,11 @@ local function validateKey(userKey)
             if matchType == "userid_only" or matchType == "base_only" then
                 setclipboard(hwid)
                 notify("New HWID copied to clipboard", "Info", 2)
+                DebugPrint("[*] Updating HWID due to partial match...")
+                updateKeyHWID(userKey, hwid)
             end
             
-            logActivation(userKey, hwid, keyInfo, "returning", matchType)
+            logActivation(userKey, hwid, keyInfo, "returning")
             
             GUI.Authenticated = true
             GUI.Visible = false
@@ -443,10 +458,10 @@ local function validateKey(userKey)
     
     if success then
         notify("✅ Script loaded!", "Matcha", 3)
-        UserPrint("[+] Script loaded successfully")
+        DebugPrint("[+] Script loaded successfully")
     else
         notify("❌ Failed to load script", "Matcha", 3)
-        UserPrint("[!] Script load error:", err)
+        DebugPrint("[!] Script load error:", err)
     end
     
     return true
@@ -695,15 +710,14 @@ end)
 -- ===========================================================
 -- INITIALIZATION
 -- ===========================================================
-UserPrint("[+] MATCHA KEY SYSTEM v2.1 LOADED")
-UserPrint("[+] Render.com webhook integration enabled")
+UserPrint("[+] MATCHA KEY SYSTEM v2.2 LOADED")
 
 spawn(function()
     task.wait(0.5)
     local hwid = generateHWID()
     setclipboard(hwid)
-    UserPrint("[+] HWID copied to clipboard")
+    DebugPrint("[+] HWID copied to clipboard")
     notify("HWID copied to clipboard", "Matcha", 3)
 end)
 
-notify("Key System Loaded", "Matcha v2.1", 2)
+notify("Key System Loaded", "Matcha v2.2", 2)

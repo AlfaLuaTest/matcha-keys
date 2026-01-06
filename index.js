@@ -518,6 +518,188 @@ app.get("/log", async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
+// CREATE NEW KEY (For Roblox Game Sales)
+// ═══════════════════════════════════════════════════
+
+app.post("/create-key", async (req, res) => {
+    try {
+        const ip = req.ip || req.connection.remoteAddress;
+        
+        if (!checkRateLimit(ip)) {
+            return res.status(429).json({ 
+                error: "rate_limit",
+                message: "Too many requests"
+            });
+        }
+        
+        const { placeId, tier, userId, username } = req.body;
+        
+        if (!placeId || !tier || !userId || !username) {
+            return res.status(400).json({ 
+                error: "missing_fields",
+                message: "Required: placeId, tier, userId, username"
+            });
+        }
+        
+        // Generate random key
+        const generateRandomKey = () => {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            const segments = 4;
+            const segmentLength = 4;
+            let key = '';
+            
+            for (let i = 0; i < segments; i++) {
+                if (i > 0) key += '-';
+                for (let j = 0; j < segmentLength; j++) {
+                    key += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+            }
+            
+            return key;
+        };
+        
+        const newKey = generateRandomKey();
+        
+        // Get game name
+        const gameNames = {
+            "606849621": "Jailbreak",
+            "2788229376": "Da Hood",
+            "3233893879": "Bad Business"
+        };
+        
+        const gameName = gameNames[placeId] || "Unknown Game";
+        
+        // Fetch current keys.json
+        const filePath = "keys.json";
+        const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${filePath}`;
+        
+        console.log(`📡 Fetching keys.json for new key creation...`);
+        const getResponse = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "Matcha-Webhook-Relay"
+            }
+        });
+
+        if (!getResponse.ok) {
+            throw new Error(`GitHub GET failed: ${getResponse.status}`);
+        }
+
+        const fileData = await getResponse.json();
+        const currentContent = Buffer.from(fileData.content, 'base64').toString('utf8');
+        const currentSHA = fileData.sha;
+        
+        const keysData = JSON.parse(currentContent);
+        
+        // Add new key
+        keysData.keys[newKey] = {
+            hwid: null,
+            expires: "3000-12-31",
+            tier: tier,
+            games: [placeId],
+            activated: true,
+            notes: `${gameName} - Purchased by ${username} (${userId})`,
+            created: new Date().toISOString(),
+            purchaser: {
+                userId: userId,
+                username: username
+            }
+        };
+        
+        keysData.last_update = new Date().toISOString();
+        
+        const newContent = JSON.stringify(keysData, null, 2);
+        const newContentBase64 = Buffer.from(newContent).toString('base64');
+        
+        console.log(`📝 Creating new key: ${newKey} for ${username}`);
+        const updateResponse = await fetch(apiUrl, {
+            method: "PUT",
+            headers: {
+                "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/json",
+                "User-Agent": "Matcha-Webhook-Relay"
+            },
+            body: JSON.stringify({
+                message: `[AUTO] New key created: ${newKey} for ${username}`,
+                content: newContentBase64,
+                sha: currentSHA,
+                branch: GITHUB_BRANCH
+            })
+        });
+
+        if (!updateResponse.ok) {
+            throw new Error(`GitHub PUT failed: ${updateResponse.status}`);
+        }
+        
+        // Send webhook notification
+        const embed = {
+            username: WEBHOOK_PROFILE.username,
+            avatar_url: WEBHOOK_PROFILE.avatar_url,
+            embeds: [{
+                title: "🎉 NEW KEY PURCHASED",
+                color: 0x00FF00,
+                fields: [
+                    {
+                        name: "🔑 Key",
+                        value: `\`\`\`${newKey}\`\`\``,
+                        inline: false
+                    },
+                    {
+                        name: "👤 Purchaser",
+                        value: `${username} (${userId})`,
+                        inline: true
+                    },
+                    {
+                        name: "🎮 Game",
+                        value: gameName,
+                        inline: true
+                    },
+                    {
+                        name: "📊 Tier",
+                        value: tier,
+                        inline: true
+                    },
+                    {
+                        name: "📅 Expires",
+                        value: "3000-12-31 (Lifetime)",
+                        inline: true
+                    }
+                ],
+                footer: {
+                    text: "Matcha Key Sales System"
+                },
+                timestamp: new Date().toISOString()
+            }]
+        };
+        
+        await fetch(WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(embed)
+        });
+        
+        console.log(`✅ Key created successfully: ${newKey}`);
+        successfulWebhooks++;
+        
+        res.json({ 
+            success: true,
+            key: newKey,
+            message: "Key created successfully"
+        });
+        
+    } catch (error) {
+        console.error("❌ Create key error:", error.message);
+        res.status(500).json({ 
+            error: "internal_error",
+            message: error.message
+        });
+    }
+});
+
+// ═══════════════════════════════════════════════════
 // ERROR HANDLERS
 // ═══════════════════════════════════════════════════
 

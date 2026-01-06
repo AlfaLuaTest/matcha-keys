@@ -1,6 +1,6 @@
 // ╔════════════════════════════════════════════════════╗
-// ║    MATCHA WEBHOOK RELAY v3.0 - Free Plan Optimized ║
-// ║         Sleep Mode Prevention + Health Check       ║
+// ║    MATCHA WEBHOOK RELAY v3.1 - GitHub Integration  ║
+// ║    Sleep Mode Prevention + Auto HWID Update        ║
 // ╚════════════════════════════════════════════════════╝
 
 import express from "express";
@@ -9,6 +9,10 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Personal Access Token
+const GITHUB_USER = process.env.GITHUB_USER || "AlfaLuaTest";
+const GITHUB_REPO = process.env.GITHUB_REPO || "matcha-keys";
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
 // ═══════════════════════════════════════════════════
 // KEEP-ALIVE SYSTEM (Anti-Sleep)
@@ -66,6 +70,85 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 // ═══════════════════════════════════════════════════
+// GITHUB INTEGRATION - UPDATE HWID IN KEYS.JSON
+// ═══════════════════════════════════════════════════
+
+async function updateKeyHWIDInGitHub(keyName, newHWID) {
+    if (!GITHUB_TOKEN) {
+        console.error("❌ GITHUB_TOKEN not configured");
+        return false;
+    }
+
+    try {
+        const filePath = "keys.json";
+        const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${filePath}`;
+        
+        // 1. Get current file content and SHA
+        console.log(`📡 Fetching keys.json from GitHub...`);
+        const getResponse = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "Matcha-Webhook-Relay"
+            }
+        });
+
+        if (!getResponse.ok) {
+            throw new Error(`GitHub GET failed: ${getResponse.status} ${getResponse.statusText}`);
+        }
+
+        const fileData = await getResponse.json();
+        const currentContent = Buffer.from(fileData.content, 'base64').toString('utf8');
+        const currentSHA = fileData.sha;
+        
+        // 2. Parse and update JSON
+        const keysData = JSON.parse(currentContent);
+        
+        if (!keysData.keys[keyName]) {
+            console.error(`❌ Key "${keyName}" not found in keys.json`);
+            return false;
+        }
+
+        keysData.keys[keyName].hwid = newHWID;
+        keysData.last_update = new Date().toISOString();
+        
+        const newContent = JSON.stringify(keysData, null, 2);
+        const newContentBase64 = Buffer.from(newContent).toString('base64');
+        
+        // 3. Commit updated file
+        console.log(`📝 Updating key "${keyName}" with new HWID...`);
+        const updateResponse = await fetch(apiUrl, {
+            method: "PUT",
+            headers: {
+                "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/json",
+                "User-Agent": "Matcha-Webhook-Relay"
+            },
+            body: JSON.stringify({
+                message: `[AUTO] Update HWID for key ${keyName}`,
+                content: newContentBase64,
+                sha: currentSHA,
+                branch: GITHUB_BRANCH
+            })
+        });
+
+        if (!updateResponse.ok) {
+            const errorText = await updateResponse.text();
+            throw new Error(`GitHub PUT failed: ${updateResponse.status} - ${errorText}`);
+        }
+
+        console.log(`✅ Successfully updated HWID for key "${keyName}" in GitHub`);
+        return true;
+
+    } catch (error) {
+        console.error("❌ GitHub update error:", error.message);
+        return false;
+    }
+}
+
+// ═══════════════════════════════════════════════════
 // MIDDLEWARE
 // ═══════════════════════════════════════════════════
 
@@ -91,7 +174,7 @@ app.get("/", (req, res) => {
     res.json({
         status: "✅ online",
         service: "Matcha Webhook Relay",
-        version: "3.0.0",
+        version: "3.1.0",
         uptime: `${hours}h ${minutes}m`,
         stats: {
             totalRequests,
@@ -100,6 +183,7 @@ app.get("/", (req, res) => {
             lastActivity: new Date(lastActivity).toISOString()
         },
         webhook: WEBHOOK_URL ? "✅ configured" : "❌ not configured",
+        github: GITHUB_TOKEN ? "✅ configured" : "❌ not configured",
         rateLimitEntries: rateLimit.size
     });
 });
@@ -200,17 +284,12 @@ app.get("/activation", async (req, res) => {
                     },
                     {
                         name: "💻 HWID",
-                        value: `\`\`\`${data.hwid.substring(0, 40)}...\`\`\``,
+                        value: `\`\`\`${data.hwid}\`\`\``,
                         inline: false
                     },
                     {
                         name: "👤 Player",
                         value: data.player || "Unknown",
-                        inline: true
-                    },
-                    {
-                        name: "🆔 User ID",
-                        value: data.userId || "N/A",
                         inline: true
                     },
                     {
@@ -227,15 +306,10 @@ app.get("/activation", async (req, res) => {
                         name: "📅 Expires",
                         value: data.expires || "N/A",
                         inline: true
-                    },
-                    {
-                        name: "🔍 Match Type",
-                        value: data.matchType || "N/A",
-                        inline: true
                     }
                 ],
                 footer: {
-                    text: `Matcha Key System v3.0 | Total Requests: ${totalRequests}`
+                    text: `Matcha Key System v3.1 | Total Requests: ${totalRequests}`
                 },
                 timestamp: new Date().toISOString()
             }]
@@ -264,6 +338,62 @@ app.get("/activation", async (req, res) => {
     } catch (error) {
         failedWebhooks++;
         console.error("❌ Activation webhook error:", error.message);
+        res.status(500).json({ 
+            error: "internal_error",
+            message: error.message
+        });
+    }
+});
+
+// ═══════════════════════════════════════════════════
+// UPDATE HWID IN GITHUB (New Endpoint)
+// ═══════════════════════════════════════════════════
+
+app.get("/update-hwid", async (req, res) => {
+    try {
+        const ip = req.ip || req.connection.remoteAddress;
+        
+        if (!checkRateLimit(ip)) {
+            return res.status(429).json({ 
+                error: "rate_limit",
+                retryAfter: 60
+            });
+        }
+        
+        const dataB64 = req.query.data;
+        if (!dataB64) {
+            return res.status(400).json({ error: "missing_data" });
+        }
+        
+        const json = Buffer.from(dataB64, "base64").toString("utf8");
+        const data = JSON.parse(json);
+        
+        if (!data.key || !data.hwid) {
+            return res.status(400).json({ 
+                error: "invalid_data",
+                message: "Missing key or hwid"
+            });
+        }
+        
+        console.log(`🔧 HWID Update request: Key=${data.key}, HWID=${data.hwid.substring(0, 20)}...`);
+        
+        // Update GitHub
+        const success = await updateKeyHWIDInGitHub(data.key, data.hwid);
+        
+        if (success) {
+            res.json({ 
+                success: true,
+                message: "HWID updated in GitHub"
+            });
+        } else {
+            res.status(500).json({ 
+                success: false,
+                message: "Failed to update GitHub"
+            });
+        }
+        
+    } catch (error) {
+        console.error("❌ Update HWID error:", error.message);
         res.status(500).json({ 
             error: "internal_error",
             message: error.message
@@ -308,22 +438,17 @@ app.get("/unauthorized", async (req, res) => {
                     },
                     {
                         name: "❌ Attempted HWID",
-                        value: `\`\`\`${data.attemptedHWID.substring(0, 40)}...\`\`\``,
+                        value: `\`\`\`${data.attemptedHWID}\`\`\``,
                         inline: false
                     },
                     {
                         name: "✅ Bound HWID",
-                        value: `\`\`\`${data.boundHWID.substring(0, 40)}...\`\`\``,
+                        value: `\`\`\`${data.boundHWID}\`\`\``,
                         inline: false
                     },
                     {
                         name: "👤 Player",
                         value: data.player || "Unknown",
-                        inline: true
-                    },
-                    {
-                        name: "🆔 User ID",
-                        value: data.userId || "N/A",
                         inline: true
                     },
                     {
@@ -441,6 +566,7 @@ app.use((req, res) => {
             "GET /ping",
             "GET /stats",
             "GET /activation?data=<base64>",
+            "GET /update-hwid?data=<base64>",
             "GET /unauthorized?data=<base64>",
             "GET /log?data=<base64>"
         ]
@@ -453,10 +579,11 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
     console.log("╔════════════════════════════════════════════════════╗");
-    console.log("║     MATCHA WEBHOOK RELAY v3.0 - READY             ║");
+    console.log("║     MATCHA WEBHOOK RELAY v3.1 - READY             ║");
     console.log("╚════════════════════════════════════════════════════╝");
     console.log(`✅ Server running on port ${PORT}`);
     console.log(`📡 Discord webhook: ${WEBHOOK_URL ? "✅ Configured" : "❌ NOT CONFIGURED"}`);
+    console.log(`🔧 GitHub integration: ${GITHUB_TOKEN ? "✅ Configured" : "❌ NOT CONFIGURED"}`);
     console.log(`🛡️  Rate limiting: ${MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW/1000}s`);
     console.log(`🔄 Self-ping active: Every 14 minutes`);
     console.log(`⏰ Started at: ${new Date().toISOString()}`);

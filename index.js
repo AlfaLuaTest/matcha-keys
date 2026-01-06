@@ -18,30 +18,10 @@ const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 // WEBHOOK CONFIGURATION - PlaceId Based
 // ═══════════════════════════════════════════════════
 
-const WEBHOOK_PROFILES = {
-    // Varsayılan profil
-    "default": {
-        username: "Matcha Security",
-        avatar_url: "https://i.imgur.com/7lMjDnF.png"
-    },
-    // PlaceId bazlı profiller
-    "606849621": { // Jailbreak
-        username: "Matcha Jailbreak",
-        avatar_url: "https://i.imgur.com/jailbreak.png"
-    },
-    "2788229376": { // Da Hood
-        username: "Matcha Da Hood",
-        avatar_url: "https://i.imgur.com/dahood.png"
-    },
-    "3233893879": { // Bad Business
-        username: "Matcha Combat",
-        avatar_url: "https://i.imgur.com/combat.png"
-    }
+const WEBHOOK_PROFILE = {
+    username: "Matcha Security",
+    avatar_url: "https://i.imgur.com/7lMjDnF.png"
 };
-
-function getWebhookProfile(placeId) {
-    return WEBHOOK_PROFILES[placeId] || WEBHOOK_PROFILES["default"];
-}
 
 // ═══════════════════════════════════════════════════
 // KEEP-ALIVE + RATE LIMITING (Önceki kodunuzdaki gibi)
@@ -258,8 +238,8 @@ app.get("/activation", async (req, res) => {
             }
         }
         
-        // Get webhook profile based on PlaceId
-        const profile = getWebhookProfile(data.placeId);
+        // Use single webhook profile
+        const profile = WEBHOOK_PROFILE;
         
         let title, color, emoji;
         
@@ -299,7 +279,7 @@ app.get("/activation", async (req, res) => {
                     },
                     {
                         name: "💻 HWID",
-                        value: `\`\`\`${data.hwid.substring(0, 40)}...\`\`\``,
+                        value: `\`\`\`${data.hwid}\`\`\``,
                         inline: false
                     },
                     {
@@ -430,7 +410,7 @@ app.get("/unauthorized", async (req, res) => {
         const json = Buffer.from(dataB64, "base64").toString("utf8");
         const data = JSON.parse(json);
         
-        const profile = getWebhookProfile(data.placeId);
+        const profile = WEBHOOK_PROFILE;
         
         const embed = {
             username: profile.username,
@@ -448,12 +428,12 @@ app.get("/unauthorized", async (req, res) => {
                     },
                     {
                         name: "❌ Attempted HWID",
-                        value: `\`\`\`${data.attemptedHWID.substring(0, 40)}...\`\`\``,
+                        value: `\`\`\`${data.attemptedHWID}\`\`\``,
                         inline: false
                     },
                     {
                         name: "✅ Bound HWID",
-                        value: `\`\`\`${data.boundHWID.substring(0, 40)}...\`\`\``,
+                        value: `\`\`\`${data.boundHWID}\`\`\``,
                         inline: false
                     },
                     {
@@ -512,7 +492,7 @@ app.get("/log", async (req, res) => {
         const json = Buffer.from(dataB64, "base64").toString("utf8");
         const data = JSON.parse(json);
         
-        const profile = getWebhookProfile(data.placeId);
+        const profile = WEBHOOK_PROFILE;
         
         const message = {
             username: profile.username,

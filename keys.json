@@ -19,7 +19,7 @@
       "notes": "Inactive key - admin needs to activate"
     },
     "BOUND-KEY-EXAMPLE": {
-      "hwid": "MTQwNjk4MTA4OTUyNTc2LTc0NjM0MTYxMzItMTM3NDYzNTUzMDM0NzM4",
+      "hwid": null,
       "expires": "2026-12-31",
       "tier": "premium",
       "created": "2026-01-05",
@@ -37,7 +37,7 @@
       "notes": "Expired key"
     },
     "MATCHA-DEMO-5678-EFGH": {
-      "hwid": "Qk1TRVg0Nzg5MDEyMzQ1Njc=",
+      "hwid": null,
       "expires": "2026-02-15",
       "tier": "basic",
       "created": "2026-01-05",

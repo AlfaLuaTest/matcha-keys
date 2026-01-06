@@ -809,12 +809,37 @@ spawn(function()
         MousePressed = isMouseDown
         
         if GUI.InputActive then
-            if IsKeyPressed(8) then
+            -- Backspace - Basili tutulunca surekli siler
+            if iskeypressed(8) then
                 if #GUI.InputText > 0 then
                     GUI.InputText = string.sub(GUI.InputText, 1, -2)
+                    wait(0.05) -- Silme hizi
                 end
             end
             
+            -- Ctrl+V - Yapistir (Clipboard'dan key yapistir)
+            if iskeypressed(0x11) and IsKeyPressed(0x56) then -- Ctrl + V
+                local success, clipboardText = pcall(function()
+                    -- Matcha'da clipboard okuma fonksiyonu yok, bu yuzden sadece mesaj
+                    return nil
+                end)
+                
+                if clipboardText and #clipboardText > 0 then
+                    GUI.InputText = clipboardText:sub(1, 25) -- Max 25 karakter
+                    UserPrint("[+] Key pasted from clipboard")
+                else
+                    UserPrint("[!] Clipboard read not supported - Type manually")
+                    notify("Paste not supported - Type key manually", "Info", 3)
+                end
+            end
+            
+            -- Ctrl+A - Tümünü seç (Tümünü sil gibi davranir)
+            if iskeypressed(0x11) and IsKeyPressed(0x41) then -- Ctrl + A
+                GUI.InputText = ""
+                UserPrint("[*] Input cleared")
+            end
+            
+            -- Letters A-Z (65-90)
             for i = 65, 90 do
                 if IsKeyPressed(i) then
                     if #GUI.InputText < 25 then
@@ -823,6 +848,7 @@ spawn(function()
                 end
             end
             
+            -- Numbers 0-9 (48-57)
             for i = 48, 57 do
                 if IsKeyPressed(i) then
                     if #GUI.InputText < 25 then
@@ -831,12 +857,14 @@ spawn(function()
                 end
             end
             
+            -- Dash (189)
             if IsKeyPressed(189) then
                 if #GUI.InputText < 25 then
                     GUI.InputText = GUI.InputText .. "-"
                 end
             end
             
+            -- Enter - Dogrulama yap
             if IsKeyPressed(13) and not GUI.Loading then
                 if GUI.InputText ~= "" and #GUI.InputText >= 1 then
                     DebugPrint("Enter pressed - Starting validation")

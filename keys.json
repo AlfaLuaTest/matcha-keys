@@ -6,7 +6,7 @@
       "tier": "premium",
       "created": "2026-01-06",
       "max_devices": 1,
-      "activated": false,
+      "activated": true,
       "notes": "Simple test key"
     },
     "MATCHA-TEST-1234-ABCD": {
@@ -32,3 +32,4 @@
   "last_update": "2026-01-06T10:00:00Z",
   "maintenance": false
 }
+

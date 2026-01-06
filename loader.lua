@@ -144,8 +144,8 @@ local titleBg = CreateSquare()
 titleBg.Color = Color3.fromRGB(15, 15, 20)
 titleBg.Transparency = 0.98
 
-local titleText = CreateText("[*] MATCHA KEY SYSTEM v2.3", 20)
-local subtitleText = CreateText("Enter your license key to continue", 13)
+local titleText = CreateText("🔐 MATCHA KEY SYSTEM v3.0", 20)
+local subtitleText = CreateText("Enter your license key below", 13)
 
 -- CLOSE BUTTON (X)
 local closeBtnBg = CreateSquare()
@@ -166,7 +166,7 @@ inputBorder.Color = Colors.Border
 inputBorder.Thickness = 2
 
 local inputText = CreateText("", 14)
-local placeholderText = CreateText("MATCHA-XXXX-XXXX-XXXX", 14)
+local placeholderText = CreateText("Enter your key here...", 14)
 placeholderText.Color = Colors.TextDim
 
 local cursorLine = CreateSquare()
@@ -188,9 +188,9 @@ local statusText = CreateText("", 12)
 local gameInfoText = CreateText("", 11)
 gameInfoText.Color = Colors.TextDim
 
-local infoText1 = CreateText("[+] Key will be bound to your device", 11)
+local infoText1 = CreateText("💡 Key binds to your device after first use", 11)
 infoText1.Color = Colors.TextDim
-local infoText2 = CreateText("[+] HWID copied to clipboard", 11)
+local infoText2 = CreateText("📋 HWID auto-copied to clipboard", 11)
 infoText2.Color = Colors.TextDim
 
 local loadingDots = CreateText("", 14)
@@ -358,39 +358,49 @@ local function fetchKeys()
 end
 
 local function getScriptForPlace(keysData, userKey, currentPlaceId)
-    -- Check if key is allowed for this place
     local keyInfo = keysData.keys[userKey]
-    if not keyInfo or not keyInfo.allowed_scripts then
+    
+    -- Check if key exists
+    if not keyInfo then
+        return nil, "Invalid key"
+    end
+    
+    -- Check if key has games list
+    if not keyInfo.games or type(keyInfo.games) ~= "table" then
         return nil, "Key configuration error"
     end
     
-    -- Get script configuration for current place
+    -- Check if game is supported
     local scriptConfig = keysData.scripts[currentPlaceId]
+    local placeId, gameName = getGameInfo()
     
-    -- If no script found and game is unknown, reject immediately
+    -- Reject unknown games
+    if gameName == "Unknown Game" then
+        return nil, "⚠️ Game not supported"
+    end
+    
+    -- If game not in scripts list, try default
     if not scriptConfig then
-        local placeId, gameName = getGameInfo()
-        if gameName == "Unknown Game" then
-            return nil, "Game not supported"
-        end
         scriptConfig = keysData.scripts["default"]
+        currentPlaceId = "default"
     end
     
+    -- Check if script is available and enabled
     if not scriptConfig or not scriptConfig.enabled then
-        return nil, "No script available for this game"
+        return nil, "No script available"
     end
     
-    -- Check if key is allowed for this specific script/game
-    local isAllowed = false
-    for _, allowedPlace in ipairs(keyInfo.allowed_scripts) do
-        if allowedPlace == currentPlaceId or allowedPlace == "default" then
-            isAllowed = true
+    -- Check if key has access to this game
+    local hasAccess = false
+    for _, gameId in ipairs(keyInfo.games) do
+        if gameId == currentPlaceId then
+            hasAccess = true
             break
         end
     end
     
-    if not isAllowed then
-        return nil, "Key not valid for this game"
+    if not hasAccess then
+        return nil, "❌ Key not valid for " .. gameName
     end
     
     return scriptConfig.url, scriptConfig.name
@@ -466,10 +476,11 @@ local function validateKey(userKey)
     local scriptURL, scriptName = getScriptForPlace(keysData, userKey, placeId)
     
     if not scriptURL then
-        GUI.StatusMessage = "[!] " .. (scriptName or "Key not valid for this game")
+        local errorMsg = scriptName or "Key not valid for this game"
+        GUI.StatusMessage = errorMsg
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
-        notify("Key not valid for this game!", "Key System", 5)
+        notify(errorMsg, "Key System", 5)
         logActivation(userKey, hwid, keyInfo, "error")
         return false
     end
@@ -601,8 +612,14 @@ local function UpdateGUI()
     subtitleText.Visible = true
     
     -- Game info
-    local _, gameName = getGameInfo()
-    gameInfoText.Text = "[🎮] Detected: " .. gameName
+    local currentPlaceId, gameName = getGameInfo()
+    if gameName == "Unknown Game" then
+        gameInfoText.Text = "⚠️ Game: " .. gameName .. " (Not Supported)"
+        gameInfoText.Color = Colors.Error
+    else
+        gameInfoText.Text = "🎮 Game: " .. gameName
+        gameInfoText.Color = Colors.Success
+    end
     gameInfoText.Position = Vector2.new(x + 20, y + 75)
     gameInfoText.Visible = true
     

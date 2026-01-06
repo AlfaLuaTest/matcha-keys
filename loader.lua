@@ -1,25 +1,19 @@
 -- ╔════════════════════════════════════════════════════╗
--- ║      MATCHA KEY SYSTEM v2.2 - Render Integration   ║
--- ║           Professional GUI + Cloud Webhook         ║
+-- ║      MATCHA KEY SYSTEM v2.3 - Multi-Script System  ║
+-- ║      PlaceId Detection + Closeable GUI + Enhanced  ║
 -- ╚════════════════════════════════════════════════════╝
 
 -- ===========================================================
--- CONFIGURATION - BURALARAI DEGISTIR!
+-- CONFIGURATION
 -- ===========================================================
 local CONFIG = {
-    -- KEY REPO (keys.json)
     KEY_GITHUB_USER = "AlfaLuaTest",
     KEY_GITHUB_REPO = "matcha-keys",
     KEY_GITHUB_BRANCH = "main",
     
-    -- MAIN SCRIPT (Ana script URL'i)
-    MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua",
-    
-    -- RENDER.COM WEBHOOK RELAY
     RENDER_API_URL = "https://matcha-discord-relay.onrender.com",
     WEBHOOK_ENABLED = true,
     
-    -- DEBUG MODE
     DEBUG_MODE = false
 }
 
@@ -56,7 +50,9 @@ local Colors = {
     Input = Color3.fromRGB(30, 30, 35),
     Success = Color3.fromRGB(0, 255, 100),
     Error = Color3.fromRGB(255, 50, 50),
-    Warning = Color3.fromRGB(255, 200, 0)
+    Warning = Color3.fromRGB(255, 200, 0),
+    CloseButton = Color3.fromRGB(255, 50, 50),
+    CloseHover = Color3.fromRGB(255, 100, 100)
 }
 
 local Drawings = {}
@@ -89,6 +85,23 @@ end
 local function IsMouseOver(x, y, w, h)
     local mousePos = GetMousePos()
     return mousePos.X >= x and mousePos.X <= x + w and mousePos.Y >= y and mousePos.Y <= y + h
+end
+
+-- ===========================================================
+-- GAME DETECTION
+-- ===========================================================
+local function getGameInfo()
+    local placeId = tostring(game.PlaceId)
+    
+    local gameNames = {
+        ["606849621"] = "Jailbreak",
+        ["2788229376"] = "Da Hood",
+        ["3233893879"] = "Bad Business",
+        ["292439477"] = "Phantom Forces",
+        ["286090429"] = "Arsenal"
+    }
+    
+    return placeId, gameNames[placeId] or "Unknown Game"
 end
 
 -- ===========================================================
@@ -131,8 +144,17 @@ local titleBg = CreateSquare()
 titleBg.Color = Color3.fromRGB(15, 15, 20)
 titleBg.Transparency = 0.98
 
-local titleText = CreateText("[*] MATCHA KEY SYSTEM v2.2", 20)
+local titleText = CreateText("[*] MATCHA KEY SYSTEM v2.3", 20)
 local subtitleText = CreateText("Enter your license key to continue", 13)
+
+-- CLOSE BUTTON (X)
+local closeBtnBg = CreateSquare()
+closeBtnBg.Color = Colors.CloseButton
+closeBtnBg.Transparency = 0.9
+closeBtnBg.Size = Vector2.new(30, 30)
+
+local closeBtnX = CreateText("X", 18)
+closeBtnX.Color = Colors.Text
 
 local inputBg = CreateSquare()
 inputBg.Color = Colors.Input
@@ -162,6 +184,9 @@ buttonBorder.Thickness = 2
 local buttonText = CreateText("Verify Key", 16)
 
 local statusText = CreateText("", 12)
+
+local gameInfoText = CreateText("", 11)
+gameInfoText.Color = Colors.TextDim
 
 local infoText1 = CreateText("[+] Key will be bound to your device", 11)
 infoText1.Color = Colors.TextDim
@@ -258,13 +283,15 @@ end
 local function logActivation(key, hwid, keyInfo, status)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
+    local placeId, gameName = getGameInfo()
     
     local data = {
         key = key,
         hwid = hwid,
         status = status,
         player = LocalPlayer.Name,
-        placeId = tostring(game.PlaceId),
+        placeId = placeId,
+        gameName = gameName,
         tier = keyInfo and keyInfo.tier or "N/A",
         expires = keyInfo and keyInfo.expires or "N/A"
     }
@@ -275,13 +302,15 @@ end
 local function logUnauthorized(key, attemptedHWID, boundHWID)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
+    local placeId, gameName = getGameInfo()
     
     local data = {
         key = key,
         attemptedHWID = attemptedHWID,
         boundHWID = boundHWID,
         player = LocalPlayer.Name,
-        placeId = tostring(game.PlaceId)
+        placeId = placeId,
+        gameName = gameName
     }
     
     sendToRender("unauthorized", data)
@@ -302,7 +331,7 @@ local function updateKeyHWID(key, hwid)
 end
 
 -- ===========================================================
--- KEY VALIDATION
+-- KEY VALIDATION + SCRIPT LOADING
 -- ===========================================================
 local function fetchKeys()
     local url = string.format(
@@ -328,6 +357,39 @@ local function fetchKeys()
     return result
 end
 
+local function getScriptForPlace(keysData, userKey, currentPlaceId)
+    -- Check if key is allowed for this place
+    local keyInfo = keysData.keys[userKey]
+    if not keyInfo or not keyInfo.allowed_scripts then
+        return nil, "Key configuration error"
+    end
+    
+    -- Check if current place is in allowed scripts
+    local isAllowed = false
+    for _, allowedPlace in ipairs(keyInfo.allowed_scripts) do
+        if allowedPlace == currentPlaceId or allowedPlace == "default" then
+            isAllowed = true
+            break
+        end
+    end
+    
+    if not isAllowed then
+        return nil, "Key not valid for this game"
+    end
+    
+    -- Get script URL
+    local scriptConfig = keysData.scripts[currentPlaceId]
+    if not scriptConfig then
+        scriptConfig = keysData.scripts["default"]
+    end
+    
+    if not scriptConfig or not scriptConfig.enabled then
+        return nil, "No script available for this game"
+    end
+    
+    return scriptConfig.url, scriptConfig.name
+end
+
 local function validateKey(userKey)
     GUI.Loading = true
     GUI.StatusMessage = "Verifying key..."
@@ -337,7 +399,8 @@ local function validateKey(userKey)
     task.wait(0.5)
     
     local hwid, baseValue, userId = generateHWID()
-    DebugPrint("[*] HWID generated")
+    local placeId, gameName = getGameInfo()
+    DebugPrint("[*] PlaceId:", placeId, "Game:", gameName)
     
     local keysData = fetchKeys()
     
@@ -393,15 +456,27 @@ local function validateKey(userKey)
         return false
     end
     
+    -- Check if key is allowed for this game
+    local scriptURL, scriptName = getScriptForPlace(keysData, userKey, placeId)
+    
+    if not scriptURL then
+        GUI.StatusMessage = "[!] " .. (scriptName or "Key not valid for this game")
+        GUI.StatusColor = Colors.Error
+        GUI.Loading = false
+        notify("Key not valid for this game!", "Key System", 5)
+        logActivation(userKey, hwid, keyInfo, "error")
+        return false
+    end
+    
+    DebugPrint("[+] Script found:", scriptName)
+    
     -- HWID binding
     if not keyInfo.hwid or keyInfo.hwid == "null" or keyInfo.hwid == "" then
-        -- First activation ONLY - HWID will be bound permanently
         GUI.StatusMessage = "[+] Key activated! Binding HWID..."
         GUI.StatusColor = Colors.Success
         notify("✅ Key activated!", "Key System", 3)
         
-        -- Update HWID in keys.json via webhook (ONLY on first activation)
-        DebugPrint("[*] Updating HWID in keys.json (first activation)...")
+        DebugPrint("[*] Updating HWID in keys.json...")
         updateKeyHWID(userKey, hwid)
         
         setclipboard(hwid)
@@ -411,7 +486,6 @@ local function validateKey(userKey)
         GUI.Authenticated = true
         GUI.Visible = false
     else
-        -- Validate HWID - NO UPDATES after initial binding
         local isValid, matchType = validateHWID(keyInfo.hwid, hwid, baseValue, userId)
         
         if isValid then
@@ -419,9 +493,8 @@ local function validateKey(userKey)
             GUI.StatusColor = Colors.Success
             notify("✅ Authentication successful!", "Key System", 2)
             
-            -- Just inform about match type, but DON'T update HWID
             if matchType == "userid_only" or matchType == "base_only" then
-                DebugPrint("[*] Partial HWID match detected:", matchType)
+                DebugPrint("[*] Partial HWID match:", matchType)
             end
             
             logActivation(userKey, hwid, keyInfo, "returning")
@@ -440,22 +513,22 @@ local function validateKey(userKey)
         end
     end
     
-    -- Load main script
+    -- Load script
     task.wait(1)
-    GUI.StatusMessage = "[...] Loading script..."
+    GUI.StatusMessage = "[...] Loading " .. scriptName .. "..."
     
     for _, draw in ipairs(Drawings) do
         draw.Visible = false
     end
     
-    notify("Loading main script...", "Matcha", 2)
+    notify("Loading " .. scriptName .. "...", "Matcha", 2)
     
     local success, err = pcall(function()
-        loadstring(game:HttpGet(CONFIG.MAIN_SCRIPT_URL))()
+        loadstring(game:HttpGet(scriptURL))()
     end)
     
     if success then
-        notify("✅ Script loaded!", "Matcha", 3)
+        notify("✅ " .. scriptName .. " loaded!", "Matcha", 3)
         DebugPrint("[+] Script loaded successfully")
     else
         notify("❌ Failed to load script", "Matcha", 3)
@@ -506,10 +579,28 @@ local function UpdateGUI()
     titleText.Color = GetRainbowColor(0)
     titleText.Visible = true
     
+    -- CLOSE BUTTON (sol üst köşe)
+    local closeX = x + w - 40
+    local closeY = y + 10
+    local isCloseHovered = IsMouseOver(closeX, closeY, 30, 30)
+    
+    closeBtnBg.Position = Vector2.new(closeX, closeY)
+    closeBtnBg.Color = isCloseHovered and Colors.CloseHover or Colors.CloseButton
+    closeBtnBg.Visible = true
+    
+    closeBtnX.Position = Vector2.new(closeX + 9, closeY + 5)
+    closeBtnX.Visible = true
+    
     subtitleText.Position = Vector2.new(x + 20, y + 60)
     subtitleText.Visible = true
     
-    local inputX, inputY = x + 20, y + 90
+    -- Game info
+    local _, gameName = getGameInfo()
+    gameInfoText.Text = "[🎮] Detected: " .. gameName
+    gameInfoText.Position = Vector2.new(x + 20, y + 75)
+    gameInfoText.Visible = true
+    
+    local inputX, inputY = x + 20, y + 100
     local inputW, inputH = w - 40, 40
     
     inputBg.Position = Vector2.new(inputX, inputY)
@@ -540,7 +631,7 @@ local function UpdateGUI()
         cursorLine.Visible = false
     end
     
-    local buttonX, buttonY = x + 20, y + 145
+    local buttonX, buttonY = x + 20, y + 155
     local buttonW, buttonH = w - 40, 45
     local isHovered = IsMouseOver(buttonX, buttonY, buttonW, buttonH)
     
@@ -569,12 +660,12 @@ local function UpdateGUI()
     
     statusText.Text = GUI.StatusMessage
     statusText.Color = GUI.StatusColor
-    statusText.Position = Vector2.new(x + 20, y + 200)
+    statusText.Position = Vector2.new(x + 20, y + 210)
     statusText.Visible = GUI.StatusMessage ~= ""
     
-    infoText1.Position = Vector2.new(x + 20, y + 225)
+    infoText1.Position = Vector2.new(x + 20, y + 235)
     infoText1.Visible = true
-    infoText2.Position = Vector2.new(x + 20, y + 240)
+    infoText2.Position = Vector2.new(x + 20, y + 250)
     infoText2.Visible = true
 end
 
@@ -614,10 +705,22 @@ spawn(function()
         local mousePos = GetMousePos()
         local isMouseDown = ismouse1pressed()
         
+        -- Close button check
+        local closeX = GUI.X + GUI.Width - 40
+        local closeY = GUI.Y + 10
+        if IsMouseOver(closeX, closeY, 30, 30) and isMouseDown and not MousePressed then
+            GUI.Visible = false
+            notify("Key system closed", "Matcha", 2)
+            UserPrint("[-] Key system closed by user")
+        end
+        
         -- Dragging
         if IsMouseOver(GUI.X, GUI.Y, GUI.Width, 50) and isMouseDown and not MousePressed then
-            GUI.Dragging = true
-            GUI.DragOffset = Vector2.new(mousePos.X - GUI.X, mousePos.Y - GUI.Y)
+            local closeX = GUI.X + GUI.Width - 40
+            if not IsMouseOver(closeX, GUI.Y + 10, 30, 30) then
+                GUI.Dragging = true
+                GUI.DragOffset = Vector2.new(mousePos.X - GUI.X, mousePos.Y - GUI.Y)
+            end
         end
         
         if GUI.Dragging then
@@ -630,7 +733,7 @@ spawn(function()
         end
         
         -- Input focus
-        local inputX, inputY = GUI.X + 20, GUI.Y + 90
+        local inputX, inputY = GUI.X + 20, GUI.Y + 100
         local inputW, inputH = GUI.Width - 40, 40
         
         if IsMouseOver(inputX, inputY, inputW, inputH) and isMouseDown and not MousePressed then
@@ -640,7 +743,7 @@ spawn(function()
         end
         
         -- Button click
-        local buttonX, buttonY = GUI.X + 20, GUI.Y + 145
+        local buttonX, buttonY = GUI.X + 20, GUI.Y + 155
         local buttonW, buttonH = GUI.Width - 40, 45
         
         if IsMouseOver(buttonX, buttonY, buttonW, buttonH) and isMouseDown and not MousePressed and not GUI.Loading then
@@ -658,7 +761,6 @@ spawn(function()
         
         -- Keyboard input
         if GUI.InputActive then
-            -- Backspace
             if iskeypressed(8) then
                 if #GUI.InputText > 0 then
                     GUI.InputText = string.sub(GUI.InputText, 1, -2)
@@ -666,7 +768,6 @@ spawn(function()
                 end
             end
             
-            -- Letters
             for i = 65, 90 do
                 if IsKeyPressed(i) then
                     if #GUI.InputText < 25 then
@@ -675,7 +776,6 @@ spawn(function()
                 end
             end
             
-            -- Numbers
             for i = 48, 57 do
                 if IsKeyPressed(i) then
                     if #GUI.InputText < 25 then
@@ -684,14 +784,12 @@ spawn(function()
                 end
             end
             
-            -- Dash
             if IsKeyPressed(189) then
                 if #GUI.InputText < 25 then
                     GUI.InputText = GUI.InputText .. "-"
                 end
             end
             
-            -- Enter
             if IsKeyPressed(13) and not GUI.Loading then
                 if #GUI.InputText >= 1 then
                     spawn(function()
@@ -708,14 +806,16 @@ end)
 -- ===========================================================
 -- INITIALIZATION
 -- ===========================================================
-UserPrint("[+] MATCHA KEY SYSTEM v2.2 LOADED")
+local placeId, gameName = getGameInfo()
+UserPrint("[+] MATCHA KEY SYSTEM v2.3 LOADED")
+UserPrint("[+] Detected Game:", gameName, "(" .. placeId .. ")")
 
 spawn(function()
     task.wait(0.5)
     local hwid = generateHWID()
     setclipboard(hwid)
     DebugPrint("[+] HWID copied to clipboard")
-    notify("HWID copied to clipboard", "Matcha", 3)
+    notify("HWID copied | Game: " .. gameName, "Matcha", 3)
 end)
 
-notify("Key System Loaded", "Matcha v2.2", 2)
+notify("Key System Loaded", "Matcha v2.3", 2)

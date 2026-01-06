@@ -26,7 +26,7 @@ local CONFIG = {
     PASTEBIN_API_KEY = "YOUR_PASTEBIN_API_KEY",    -- ← Pastebin API key
     
     -- DEBUG MODE
-    DEBUG_MODE = true  -- ← false yaparak debug mesajlarını kapatın
+    DEBUG_MODE = false  -- ← false yaparak debug mesajlarını kapatın
 }
 
 -- ═══════════════════════════════════════════════════════════

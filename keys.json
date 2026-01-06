@@ -6,7 +6,7 @@
       "tier": "premium",
       "created": "2026-01-06",
       "max_devices": 1,
-      "activated": false,
+      "activated": true,
       "notes": "Test key for demo"
     },
     "MATCHA-DEMO-5678-EFGH": {
@@ -24,3 +24,4 @@
   "maintenance": false
 
 }
+

@@ -1,37 +1,37 @@
--- ╔═══════════════════════════════════════════════════════════╗
--- ║            MATCHA KEY SYSTEM - Professional GUI           ║
--- ║                 github.com/USERNAME/matcha-keys           ║
--- ╚═══════════════════════════════════════════════════════════╝
+-- +===========================================================+
+-- |        MATCHA KEY SYSTEM - Professional GUI v2.0        |
+-- |             github.com/USERNAME/matcha-keys             |
+-- +===========================================================+
 
-print("🔑 MATCHA KEY SYSTEM LOADING...")
+print("[*] MATCHA KEY SYSTEM LOADING...")
 
--- ═══════════════════════════════════════════════════════════
--- CONFIGURATION - BURALARAI DEĞİŞTİR!
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
+-- CONFIGURATION - BURALARAI DEGISTIR!
+-- ===========================================================
 local CONFIG = {
-    -- KEY REPO (keys.json dosyasının bulunduğu repo)
-    KEY_GITHUB_USER = "AlfaLuaTest",     -- ← Key repo kullanıcı adı
-    KEY_GITHUB_REPO = "matcha-keys",     -- ← Key repo adı
-    KEY_GITHUB_BRANCH = "main",          -- ← Key repo branch
+    -- KEY REPO (keys.json dosyasinin bulundugu repo)
+    KEY_GITHUB_USER = "AlfaLuaTest",
+    KEY_GITHUB_REPO = "matcha-keys",
+    KEY_GITHUB_BRANCH = "main",
     
-    -- MAIN SCRIPT (Ana scriptin bulunduğu yer)
+    -- MAIN SCRIPT (Ana scriptin bulundugu yer)
     MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua",
     
-    -- WEBHOOK (HWID gönderimi için)
-    WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE", -- ← Discord webhook URL'nizi buraya
-    WEBHOOK_ENABLED = true,                        -- ← false yaparak kapatabilirsiniz
+    -- WEBHOOK (HWID gonderimi icin)
+    WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE",
+    WEBHOOK_ENABLED = true,
     
-    -- ALTERNATIVE: Pastebin ile HWID gönderimi (Webhook çalışmazsa)
-    PASTEBIN_ENABLED = false,                      -- ← true yapın webhook yerine pastebin kullanmak için
-    PASTEBIN_API_KEY = "YOUR_PASTEBIN_API_KEY",    -- ← Pastebin API key
+    -- ALTERNATIVE: Pastebin ile HWID gonderimi
+    PASTEBIN_ENABLED = false,
+    PASTEBIN_API_KEY = "YOUR_PASTEBIN_API_KEY",
     
-    -- DEBUG MODE
-    DEBUG_MODE = true  -- ← false yaparak debug mesajlarını kapatın
+    -- DEBUG MODE (Teknik detaylar icin)
+    DEBUG_MODE = false
 }
 
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- GUI STATE
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 local GUI = {
     Visible = true,
     Dragging = false,
@@ -45,7 +45,8 @@ local GUI = {
     CursorBlink = 0,
     StatusMessage = "",
     StatusColor = Color3.fromRGB(255, 255, 255),
-    Loading = false
+    Loading = false,
+    Authenticated = false
 }
 
 -- Rainbow State
@@ -69,13 +70,17 @@ local Colors = {
 -- Drawing Objects
 local Drawings = {}
 
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- UTILITY FUNCTIONS
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 local function DebugPrint(...)
     if CONFIG.DEBUG_MODE then
-        print(...)
+        print("[DEBUG]", ...)
     end
+end
+
+local function UserPrint(...)
+    print("[MATCHA]", ...)
 end
 
 local function GetRainbowColor(offset)
@@ -95,9 +100,9 @@ local function IsMouseOver(x, y, w, h)
     return mousePos.X >= x and mousePos.X <= x + w and mousePos.Y >= y and mousePos.Y <= y + h
 end
 
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- DRAWING FUNCTIONS
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 local function CreateSquare()
     local sq = Drawing.new("Square")
     sq.Filled = true
@@ -119,9 +124,9 @@ local function CreateText(text, size)
     return txt
 end
 
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- CREATE GUI ELEMENTS
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- Background
 local guiBg = CreateSquare()
 guiBg.Color = Colors.Background
@@ -137,7 +142,7 @@ titleBg.Color = Color3.fromRGB(15, 15, 20)
 titleBg.Transparency = 0.98
 
 -- Title
-local titleText = CreateText("🔑 MATCHA KEY SYSTEM", 20)
+local titleText = CreateText("[*] MATCHA KEY SYSTEM", 20)
 local subtitleText = CreateText("Enter your license key to continue", 13)
 
 -- Input Box
@@ -173,49 +178,42 @@ local buttonText = CreateText("Verify Key", 16)
 local statusText = CreateText("", 12)
 
 -- Info
-local infoText1 = CreateText("• Key will be bound to your device on first use", 11)
+local infoText1 = CreateText("[+] Key will be bound to your device on first use", 11)
 infoText1.Color = Colors.TextDim
-local infoText2 = CreateText("• Your HWID will be copied to clipboard", 11)
+local infoText2 = CreateText("[+] Your HWID has been copied to clipboard", 11)
 infoText2.Color = Colors.TextDim
 
 -- Loading Animation
 local loadingDots = CreateText("", 14)
 
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- HWID & KEY FUNCTIONS
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 local function generateHWID()
     -- HYBRID METHOD: getbase() + UserId
-    -- getbase() = Spoof-proof, PC-specific
-    -- UserId = Account-specific, stable
-    
     local base = tostring(getbase())
-    
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
     local userId = LocalPlayer and tostring(LocalPlayer.UserId) or "unknown"
-    
-    -- Combine both for maximum security and flexibility
     local combined = base .. "-" .. userId
-    
-    -- Base64 encode for obfuscation
     local hwid = base64encode(combined)
     
-    DebugPrint("🔐 HWID Generated (Hybrid method)")
-    DebugPrint("  Method: getbase() + UserId")
-    DebugPrint("  Security: Maximum spoof-proof + Account binding")
+    DebugPrint("HWID Generated (Hybrid: getbase + UserId)")
+    DebugPrint("Base:", base)
+    DebugPrint("UserId:", userId)
+    DebugPrint("Combined HWID:", hwid)
     
     return hwid, base, userId
 end
 
 local function validateHWID(storedHWID, currentHWID, currentBase, currentUserId)
-    -- Try exact match first (best case)
+    -- Try exact match first
     if storedHWID == currentHWID then
-        DebugPrint("✅ Perfect match: Full HWID matches (getbase + UserId)")
+        DebugPrint("Perfect HWID match")
         return true, "exact"
     end
     
-    -- Decode stored HWID to get individual components
+    -- Decode stored HWID
     local storedBase, storedUserId = nil, nil
     pcall(function()
         local decoded = base64decode(storedHWID)
@@ -223,7 +221,6 @@ local function validateHWID(storedHWID, currentHWID, currentBase, currentUserId)
         for part in string.gmatch(decoded, "[^-]+") do
             table.insert(parts, part)
         end
-        
         if #parts >= 2 then
             storedBase = parts[1]
             storedUserId = parts[2]
@@ -231,58 +228,47 @@ local function validateHWID(storedHWID, currentHWID, currentBase, currentUserId)
     end)
     
     if not storedBase or not storedUserId then
-        DebugPrint("❌ Could not decode stored HWID")
+        DebugPrint("Failed to decode stored HWID")
         return false, "decode_error"
     end
     
-    DebugPrint("🔍 Component check:")
-    DebugPrint("  getbase match: " .. (storedBase == currentBase and "✅" or "❌"))
-    DebugPrint("  UserId match: " .. (storedUserId == currentUserId and "✅" or "❌"))
-    
-    -- Check if EITHER getbase OR UserId matches
     local baseMatches = (storedBase == currentBase)
     local userIdMatches = (storedUserId == currentUserId)
     
+    DebugPrint("Component check - Base:", baseMatches, "UserId:", userIdMatches)
+    
     if baseMatches and userIdMatches then
-        DebugPrint("✅ Both match (shouldn't happen if exact failed, but ok)")
         return true, "both"
     elseif baseMatches and not userIdMatches then
-        DebugPrint("✅ getbase matches (UserId different - same PC, different account)")
+        DebugPrint("Same device, different account")
         return true, "base_only"
     elseif not baseMatches and userIdMatches then
-        DebugPrint("✅ UserId matches (getbase different - same account, different PC/restart)")
+        DebugPrint("Same account, different device")
         return true, "userid_only"
     else
-        DebugPrint("❌ Neither matches: Different PC AND different account")
+        DebugPrint("No match - Different device AND account")
         return false, "no_match"
     end
 end
 
 local function sendWebhook(hwid, userKey, keyInfo, status)
     if not CONFIG.WEBHOOK_ENABLED or CONFIG.WEBHOOK_URL == "YOUR_DISCORD_WEBHOOK_URL_HERE" then
-        DebugPrint("⚠️ Webhook disabled or not configured")
-        
-        -- Try alternative method
+        DebugPrint("Webhook disabled or not configured")
         if CONFIG.PASTEBIN_ENABLED then
             sendToPastebin(hwid, userKey, keyInfo, status)
         end
         return
     end
     
-    DebugPrint("📤 Sending webhook...")
+    DebugPrint("Sending webhook...")
     
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
     
-    -- Safe string conversion
     local function safeStr(val)
-        if val == nil then
-            return "N/A"
-        end
-        return tostring(val)
+        return val and tostring(val) or "N/A"
     end
     
-    -- Build webhook payload
     local tierInfo = keyInfo and safeStr(keyInfo.tier) or "N/A"
     local expiresInfo = keyInfo and safeStr(keyInfo.expires) or "N/A"
     local statusText = status == "success" and "Key Activated Successfully" or (status == "error" and "Activation Failed" or "Already Activated")
@@ -290,36 +276,36 @@ local function sendWebhook(hwid, userKey, keyInfo, status)
     
     local embed = {
         ["embeds"] = {{
-            ["title"] = "🔑 New Key Activation",
+            ["title"] = "[*] New Key Activation",
             ["color"] = colorCode,
             ["fields"] = {
                 {
-                    ["name"] = "👤 Player",
+                    ["name"] = "[>] Player",
                     ["value"] = safeStr(LocalPlayer.Name) .. " (@" .. safeStr(LocalPlayer.UserId) .. ")",
                     ["inline"] = true
                 },
                 {
-                    ["name"] = "🎮 Game",
+                    ["name"] = "[>] Game",
                     ["value"] = "PlaceId: " .. safeStr(game.PlaceId),
                     ["inline"] = true
                 },
                 {
-                    ["name"] = "🔑 Key",
+                    ["name"] = "[>] Key",
                     ["value"] = "```" .. safeStr(userKey) .. "```",
                     ["inline"] = false
                 },
                 {
-                    ["name"] = "🔐 HWID",
+                    ["name"] = "[>] HWID",
                     ["value"] = "```" .. safeStr(hwid) .. "```",
                     ["inline"] = false
                 },
                 {
-                    ["name"] = "📊 Key Info",
+                    ["name"] = "[>] Key Info",
                     ["value"] = "Tier: " .. tierInfo .. "\nExpires: " .. expiresInfo,
                     ["inline"] = false
                 },
                 {
-                    ["name"] = "✅ Status",
+                    ["name"] = "[>] Status",
                     ["value"] = statusText,
                     ["inline"] = false
                 }
@@ -331,21 +317,16 @@ local function sendWebhook(hwid, userKey, keyInfo, status)
     local success, result = pcall(function()
         local HttpService = game:GetService("HttpService")
         local jsonData = HttpService:JSONEncode(embed)
-        
-        -- Try HttpPost (may not work in Matcha)
         local response = game:HttpPost(CONFIG.WEBHOOK_URL, jsonData)
         return response
     end)
     
     if success then
-        DebugPrint("✅ Webhook sent successfully!")
+        DebugPrint("Webhook sent successfully")
         notify("HWID sent to admin", "Webhook", 2)
     else
-        DebugPrint("❌ Webhook failed: " .. tostring(result))
-        DebugPrint("⚠️ Note: HttpPost may not be supported in Matcha")
+        DebugPrint("Webhook failed:", result)
         notify("Webhook not supported - HWID copied to clipboard", "Info", 3)
-        
-        -- Try alternative method
         if CONFIG.PASTEBIN_ENABLED then
             sendToPastebin(hwid, userKey, keyInfo, status)
         end
@@ -354,11 +335,11 @@ end
 
 local function sendToPastebin(hwid, userKey, keyInfo, status)
     if not CONFIG.PASTEBIN_ENABLED or CONFIG.PASTEBIN_API_KEY == "YOUR_PASTEBIN_API_KEY" then
-        DebugPrint("⚠️ Pastebin disabled or not configured")
+        DebugPrint("Pastebin disabled or not configured")
         return
     end
     
-    DebugPrint("📤 Sending to Pastebin...")
+    DebugPrint("Sending to Pastebin...")
     
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
@@ -367,7 +348,6 @@ local function sendToPastebin(hwid, userKey, keyInfo, status)
         return val and tostring(val) or "N/A"
     end
     
-    -- Build text content
     local content = string.format([[
 ========================================
     MATCHA KEY ACTIVATION LOG
@@ -405,17 +385,16 @@ Status: %s
             game:GetService("HttpService"):UrlEncode(content),
             safeStr(LocalPlayer.Name)
         )
-        
         local response = game:HttpPost(url, postData)
         return response
     end)
     
     if success and result then
-        DebugPrint("✅ Pastebin created: " .. tostring(result))
+        DebugPrint("Pastebin created:", result)
         notify("HWID log created", "Pastebin", 2)
         setclipboard(tostring(result))
     else
-        DebugPrint("❌ Pastebin failed: " .. tostring(result))
+        DebugPrint("Pastebin failed:", result)
     end
 end
 
@@ -427,20 +406,19 @@ local function fetchKeys()
         CONFIG.KEY_GITHUB_BRANCH
     )
     
-    DebugPrint("🌐 Fetching keys from server...")
+    DebugPrint("Fetching keys from server:", url)
     
     local success, result = pcall(function()
         local response = game:HttpGet(url)
-        DebugPrint("📥 Response received: " .. #response .. " bytes")
-        
+        DebugPrint("Response received:", #response, "bytes")
         local HttpService = game:GetService("HttpService")
         local decoded = HttpService:JSONDecode(response)
-        DebugPrint("✅ JSON decoded successfully!")
+        DebugPrint("JSON decoded successfully")
         return decoded
     end)
     
     if not success then
-        DebugPrint("❌ ERROR: Failed to fetch keys from server")
+        UserPrint("[!] Failed to connect to server")
         notify("Failed to connect to server", "Key System", 3)
         return nil
     end
@@ -453,22 +431,19 @@ local function validateKey(userKey)
     GUI.StatusMessage = "Verifying key..."
     GUI.StatusColor = Colors.Warning
     
-    DebugPrint("═══════════════════════════════════════")
-    DebugPrint("🔍 Key Validation Started")
-    DebugPrint("═══════════════════════════════════════")
-    DebugPrint("📏 Key Length: " .. #userKey)
+    UserPrint("[*] Validating key...")
+    DebugPrint("Key length:", #userKey)
     
     task.wait(0.5)
     
     local hwid, baseValue, userId = generateHWID()
-    DebugPrint("🔐 HWID Generated")
-    DebugPrint("  Account: User #" .. userId)
+    UserPrint("[*] Device fingerprint generated")
     
     local keysData = fetchKeys()
     
     if not keysData then
-        DebugPrint("❌ ERROR: Failed to fetch keys from GitHub")
-        GUI.StatusMessage = "❌ Failed to connect to server"
+        UserPrint("[!] Server connection failed")
+        GUI.StatusMessage = "[!] Failed to connect to server"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Failed to connect to server", "Key System", 3)
@@ -476,23 +451,21 @@ local function validateKey(userKey)
         return false
     end
     
-    DebugPrint("✅ Keys fetched successfully!")
-    
     if not keysData.keys then
-        DebugPrint("❌ ERROR: Invalid server response format")
-        GUI.StatusMessage = "❌ Invalid server response"
+        UserPrint("[!] Invalid server response")
+        GUI.StatusMessage = "[!] Invalid server response"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         return false
     end
     
-    DebugPrint("📋 Total keys in database: " .. tostring(#keysData.keys))
+    DebugPrint("Total keys in database:", #keysData.keys)
     
     local keyInfo = keysData.keys[userKey]
     
     if not keyInfo then
-        DebugPrint("❌ ERROR: Key not found in database")
-        GUI.StatusMessage = "❌ Invalid key"
+        UserPrint("[!] Invalid key")
+        GUI.StatusMessage = "[!] Invalid key"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Invalid key!", "Key System", 3)
@@ -500,9 +473,7 @@ local function validateKey(userKey)
         return false
     end
     
-    DebugPrint("✅ Key found and validated!")
-    DebugPrint("📊 Key Tier: " .. keyInfo.tier)
-    DebugPrint("📅 Expires: " .. keyInfo.expires)
+    UserPrint("[+] Key found - Tier: " .. keyInfo.tier)
     
     -- Check expiration
     local now = os.time()
@@ -515,27 +486,20 @@ local function validateKey(userKey)
     })
     
     if now > expireTime then
-        GUI.StatusMessage = "❌ Key expired on " .. keyInfo.expires
+        UserPrint("[!] Key expired on " .. keyInfo.expires)
+        GUI.StatusMessage = "[!] Key expired on " .. keyInfo.expires
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Key expired!", "Key System", 3)
-        DebugPrint("❌ Key expired!")
         sendWebhook(hwid, userKey, keyInfo, "error")
         return false
     end
     
-    DebugPrint("✅ Key expiration check passed")
+    UserPrint("[+] Expiration check passed")
     
-    -- Check if key is activated/enabled
-    DebugPrint("🔍 Checking activation status...")
-    DebugPrint("  activated field value: " .. tostring(keyInfo.activated))
-    DebugPrint("  activated field type: " .. type(keyInfo.activated))
-    
-    -- More flexible activation check
-    local isActivated = true  -- Default to true if field doesn't exist
-    
+    -- Check activation status
+    local isActivated = true
     if keyInfo.activated ~= nil then
-        -- If field exists, check its value
         if type(keyInfo.activated) == "boolean" then
             isActivated = keyInfo.activated
         elseif type(keyInfo.activated) == "string" then
@@ -545,99 +509,71 @@ local function validateKey(userKey)
         end
     end
     
-    DebugPrint("  Final activation status: " .. tostring(isActivated))
+    DebugPrint("Activation status:", isActivated)
     
     if not isActivated then
-        GUI.StatusMessage = "❌ Key is not activated yet"
+        UserPrint("[!] Key not activated by admin")
+        GUI.StatusMessage = "[!] Key is not activated yet"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Key not activated by admin!", "Key System", 5)
-        DebugPrint("❌ Key is not activated (activated = false)")
-        DebugPrint("💡 Contact admin to activate this key")
+        notify("Contact admin to activate this key", "Info", 3)
         sendWebhook(hwid, userKey, keyInfo, "error")
         return false
     end
     
-    DebugPrint("✅ Key activation status check passed")
+    UserPrint("[+] Activation status verified")
     
     -- Check HWID binding
-    DebugPrint("🔍 Checking HWID binding...")
-    
     if keyInfo.hwid == nil or keyInfo.hwid == "null" or keyInfo.hwid == "" then
-        -- First time activation - bind HWID
-        GUI.StatusMessage = "✅ Key activated! HWID copied to clipboard"
+        -- First time activation
+        UserPrint("[+] First time activation!")
+        GUI.StatusMessage = "[+] Key activated! HWID copied to clipboard"
         GUI.StatusColor = Colors.Success
         notify("Key activated successfully!", "Key System", 3)
-        notify("HWID copied to clipboard - Send to admin!", "Important", 5)
+        notify("HWID copied - Send to admin!", "Important", 5)
         setclipboard(hwid)
-        DebugPrint("✅ First activation - HWID copied to clipboard")
-        DebugPrint("⚠️ Send HWID to admin to complete binding")
-        
-        -- Send webhook for new activation
         sendWebhook(hwid, userKey, keyInfo, "success")
-        
-        -- Mark as authenticated
         GUI.Authenticated = true
-        
-        -- Immediately hide GUI
         GUI.Visible = false
         task.wait(0.1)
-        
     else
-        -- HWID exists, validate it
+        -- HWID exists, validate
         local isValid, matchType = validateHWID(keyInfo.hwid, hwid, baseValue, userId)
         
         if isValid then
             if matchType == "exact" or matchType == "both" then
-                -- Perfect match - same device, same account
-                GUI.StatusMessage = "✅ Welcome back!"
+                UserPrint("[+] Welcome back!")
+                GUI.StatusMessage = "[+] Welcome back!"
                 GUI.StatusColor = Colors.Success
                 notify("Authentication successful!", "Key System", 2)
-                DebugPrint("✅ Perfect match - Same device & account")
-                
             elseif matchType == "userid_only" then
-                -- UserId match but getbase different - same account, different PC or restart
-                GUI.StatusMessage = "✅ Account verified!"
+                UserPrint("[+] Account verified (device changed)")
+                GUI.StatusMessage = "[+] Account verified!"
                 GUI.StatusColor = Colors.Success
-                notify("Account verified - Device signature updated", "Key System", 3)
-                DebugPrint("✅ UserId match - Same account (PC changed or restart)")
-                
-                -- Copy new HWID to clipboard
+                notify("Account verified - Device updated", "Key System", 3)
                 setclipboard(hwid)
                 notify("New HWID copied to clipboard", "Info", 2)
-                
             elseif matchType == "base_only" then
-                -- getbase match but UserId different - same PC, different account
-                GUI.StatusMessage = "✅ Device verified!"
+                UserPrint("[+] Device verified (account changed)")
+                GUI.StatusMessage = "[+] Device verified!"
                 GUI.StatusColor = Colors.Success
                 notify("Device verified - Account changed", "Key System", 3)
-                DebugPrint("✅ getbase match - Same PC, different account")
-                
-                -- Copy new HWID to clipboard
                 setclipboard(hwid)
                 notify("New HWID copied to clipboard", "Info", 2)
             end
             
-            -- Send webhook for returning user
             sendWebhook(hwid, userKey, keyInfo, "returning")
-            
-            -- Mark as authenticated
             GUI.Authenticated = true
-            
-            -- Immediately hide GUI
             GUI.Visible = false
             task.wait(0.1)
-            
         else
-            -- Neither getbase NOR UserId matches - completely different
-            GUI.StatusMessage = "❌ Key bound to different account & device"
+            UserPrint("[!] Key bound to different device & account")
+            GUI.StatusMessage = "[!] Key bound to different account & device"
             GUI.StatusColor = Colors.Error
             GUI.Loading = false
             notify("Key bound to another user & device!", "Key System", 5)
-            DebugPrint("❌ No match - Different account AND different device")
-            DebugPrint("💡 Contact admin for key transfer")
-            
-            -- Send webhook for failed attempt
+            notify("Contact admin for key transfer", "Info", 3)
             sendWebhook(hwid, userKey, keyInfo, "error")
             return false
         end
@@ -645,9 +581,8 @@ local function validateKey(userKey)
     
     -- Load main script
     task.wait(1)
-    GUI.StatusMessage = "⏳ Loading script..."
+    GUI.StatusMessage = "[...] Loading script..."
     
-    -- Cleanup GUI
     for _, draw in ipairs(Drawings) do
         draw.Visible = false
     end
@@ -659,20 +594,19 @@ local function validateKey(userKey)
     
     if success then
         notify("Script loaded successfully!", "Matcha", 3)
-        print("✅ Script loaded successfully!")
+        UserPrint("[+] Script loaded successfully!")
     else
         notify("Failed to load script", "Matcha", 3)
-        warn("Error loading script:", err)
+        UserPrint("[!] Error loading script:", err)
     end
     
     return true
 end
 
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- UPDATE GUI
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 local function UpdateGUI()
-    -- If authenticated, force hide everything
     if GUI.Authenticated then
         for _, draw in ipairs(Drawings) do
             pcall(function()
@@ -689,14 +623,12 @@ local function UpdateGUI()
         return
     end
     
-    -- Update Rainbow
     RainbowHue = (RainbowHue + 0.002) % 1
     GUI.CursorBlink = (GUI.CursorBlink + 0.05) % 2
     
     local x, y = GUI.X, GUI.Y
     local w, h = GUI.Width, GUI.Height
     
-    -- Background
     guiBg.Position = Vector2.new(x, y)
     guiBg.Size = Vector2.new(w, h)
     guiBg.Visible = true
@@ -706,20 +638,17 @@ local function UpdateGUI()
     guiBorder.Color = GetRainbowColor(0)
     guiBorder.Visible = true
     
-    -- Title Background
     titleBg.Position = Vector2.new(x, y)
     titleBg.Size = Vector2.new(w, 50)
     titleBg.Visible = true
     
-    -- Title
-    titleText.Position = Vector2.new(x + w/2 - 130, y + 12)
+    titleText.Position = Vector2.new(x + w/2 - 140, y + 12)
     titleText.Color = GetRainbowColor(0)
     titleText.Visible = true
     
     subtitleText.Position = Vector2.new(x + 20, y + 60)
     subtitleText.Visible = true
     
-    -- Input Box
     local inputX, inputY = x + 20, y + 90
     local inputW, inputH = w - 40, 40
     
@@ -732,7 +661,6 @@ local function UpdateGUI()
     inputBorder.Color = GUI.InputActive and GetRainbowColor(0.5) or Colors.Border
     inputBorder.Visible = true
     
-    -- Input Text
     if GUI.InputText == "" then
         placeholderText.Position = Vector2.new(inputX + 15, inputY + 12)
         placeholderText.Visible = true
@@ -744,7 +672,6 @@ local function UpdateGUI()
         inputText.Visible = true
     end
     
-    -- Cursor
     if GUI.InputActive and GUI.CursorBlink < 1 then
         local textWidth = #GUI.InputText * 8.5
         cursorLine.Position = Vector2.new(inputX + 15 + textWidth, inputY + 11)
@@ -753,7 +680,6 @@ local function UpdateGUI()
         cursorLine.Visible = false
     end
     
-    -- Button
     local buttonX, buttonY = x + 20, y + 145
     local buttonW, buttonH = w - 40, 45
     local isHovered = IsMouseOver(buttonX, buttonY, buttonW, buttonH)
@@ -782,22 +708,20 @@ local function UpdateGUI()
         buttonText.Visible = true
     end
     
-    -- Status
     statusText.Text = GUI.StatusMessage
     statusText.Color = GUI.StatusColor
     statusText.Position = Vector2.new(x + 20, y + 200)
     statusText.Visible = GUI.StatusMessage ~= ""
     
-    -- Info
     infoText1.Position = Vector2.new(x + 20, y + 225)
     infoText1.Visible = true
     infoText2.Position = Vector2.new(x + 20, y + 240)
     infoText2.Visible = true
 end
 
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 -- INPUT HANDLING
--- ═══════════════════════════════════════════════════════════
+-- ===========================================================
 local MousePressed = false
 local KeyStates = {}
 
@@ -818,12 +742,9 @@ spawn(function()
     while loopActive do
         wait(0.01)
         
-        -- Stop loop if authenticated
         if GUI.Authenticated then
-            DebugPrint("🛑 GUI loop stopping - authenticated")
+            DebugPrint("GUI loop stopping - authenticated")
             loopActive = false
-            
-            -- Force hide all drawings one more time
             task.wait(0.1)
             for _, draw in ipairs(Drawings) do
                 pcall(function()
@@ -833,7 +754,6 @@ spawn(function()
             break
         end
         
-        -- Check if GUI should be hidden
         if not GUI.Visible then
             for _, draw in ipairs(Drawings) do
                 pcall(function()
@@ -847,7 +767,6 @@ spawn(function()
         local mousePos = GetMousePos()
         local isMouseDown = ismouse1pressed()
         
-        -- Dragging
         if IsMouseOver(GUI.X, GUI.Y, GUI.Width, 50) and isMouseDown and not MousePressed then
             GUI.Dragging = true
             GUI.DragOffset = Vector2.new(mousePos.X - GUI.X, mousePos.Y - GUI.Y)
@@ -862,7 +781,6 @@ spawn(function()
             end
         end
         
-        -- Input Box Click
         local inputX, inputY = GUI.X + 20, GUI.Y + 90
         local inputW, inputH = GUI.Width - 40, 40
         
@@ -872,35 +790,31 @@ spawn(function()
             GUI.InputActive = false
         end
         
-        -- Button Click
         local buttonX, buttonY = GUI.X + 20, GUI.Y + 145
         local buttonW, buttonH = GUI.Width - 40, 45
         
         if IsMouseOver(buttonX, buttonY, buttonW, buttonH) and isMouseDown and not MousePressed and not GUI.Loading then
             if GUI.InputText ~= "" and #GUI.InputText >= 1 then
-                DebugPrint("🔘 Button clicked! Starting validation...")
+                DebugPrint("Button clicked - Starting validation")
                 spawn(function()
                     validateKey(GUI.InputText)
                 end)
             else
-                DebugPrint("⚠️ Key too short: '" .. GUI.InputText .. "' (length: " .. #GUI.InputText .. ")")
-                GUI.StatusMessage = "❌ Please enter a valid key"
+                UserPrint("[!] Please enter a valid key")
+                GUI.StatusMessage = "[!] Please enter a valid key"
                 GUI.StatusColor = Colors.Error
             end
         end
         
         MousePressed = isMouseDown
         
-        -- Text Input (simplified - only handles alphanumeric and dash)
         if GUI.InputActive then
-            -- Backspace (8)
             if IsKeyPressed(8) then
                 if #GUI.InputText > 0 then
                     GUI.InputText = string.sub(GUI.InputText, 1, -2)
                 end
             end
             
-            -- Letters A-Z (65-90)
             for i = 65, 90 do
                 if IsKeyPressed(i) then
                     if #GUI.InputText < 25 then
@@ -909,7 +823,6 @@ spawn(function()
                 end
             end
             
-            -- Numbers 0-9 (48-57)
             for i = 48, 57 do
                 if IsKeyPressed(i) then
                     if #GUI.InputText < 25 then
@@ -918,17 +831,15 @@ spawn(function()
                 end
             end
             
-            -- Dash (189)
             if IsKeyPressed(189) then
                 if #GUI.InputText < 25 then
                     GUI.InputText = GUI.InputText .. "-"
                 end
             end
             
-            -- Enter (13)
             if IsKeyPressed(13) and not GUI.Loading then
                 if GUI.InputText ~= "" and #GUI.InputText >= 1 then
-                    DebugPrint("⌨️ Enter pressed! Starting validation...")
+                    DebugPrint("Enter pressed - Starting validation")
                     spawn(function()
                         validateKey(GUI.InputText)
                     end)
@@ -940,10 +851,21 @@ spawn(function()
     end
 end)
 
--- ═══════════════════════════════════════════════════════════
--- INITIALIZATION
--- ═══════════════════════════════════════════════════════════
-print("✅ MATCHA KEY SYSTEM LOADED!")
-print("📝 Enter your key in the GUI")
+-- ===========================================================
+-- INITIALIZATION & AUTO HWID COPY
+-- ===========================================================
+UserPrint("[+] MATCHA KEY SYSTEM LOADED!")
+UserPrint("[*] Enter your key in the GUI")
+
+-- Auto-copy HWID on startup
+spawn(function()
+    task.wait(0.5)
+    local hwid = generateHWID()
+    setclipboard(hwid)
+    UserPrint("[+] HWID copied to clipboard automatically")
+    notify("HWID copied to clipboard", "Matcha", 3)
+    notify("Save your HWID for admin", "Important", 4)
+end)
+
 notify("Key System Loaded", "Matcha", 2)
 notify("Enter your license key", "System", 3)

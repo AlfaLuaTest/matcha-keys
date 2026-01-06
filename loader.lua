@@ -185,19 +185,77 @@ local loadingDots = CreateText("", 14)
 -- HWID & KEY FUNCTIONS
 -- ═══════════════════════════════════════════════════════════
 local function generateHWID()
-    -- SADECE getbase() kullan - En güvenli ve spoof-proof yöntem
-    -- getbase() Matcha'nın internal fonksiyonu ve manipüle edilemez
+    -- HYBRID METHOD: getbase() + UserId
+    -- getbase() = Spoof-proof, PC-specific
+    -- UserId = Account-specific, stable
     
     local base = tostring(getbase())
     
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local userId = LocalPlayer and tostring(LocalPlayer.UserId) or "unknown"
+    
+    -- Combine both for maximum security and flexibility
+    local combined = base .. "-" .. userId
+    
     -- Base64 encode for obfuscation
-    local hwid = base64encode(base)
+    local hwid = base64encode(combined)
     
-    DebugPrint("🔐 HWID Generated (Base-only method)")
-    DebugPrint("  Method: getbase() only")
-    DebugPrint("  Security: Maximum (spoof-proof)")
+    DebugPrint("🔐 HWID Generated (Hybrid method)")
+    DebugPrint("  Method: getbase() + UserId")
+    DebugPrint("  Security: Maximum spoof-proof + Account binding")
     
-    return hwid
+    return hwid, base, userId
+end
+
+local function validateHWID(storedHWID, currentHWID, currentBase, currentUserId)
+    -- Try exact match first (best case)
+    if storedHWID == currentHWID then
+        DebugPrint("✅ Perfect match: Full HWID matches (getbase + UserId)")
+        return true, "exact"
+    end
+    
+    -- Decode stored HWID to get individual components
+    local storedBase, storedUserId = nil, nil
+    pcall(function()
+        local decoded = base64decode(storedHWID)
+        local parts = {}
+        for part in string.gmatch(decoded, "[^-]+") do
+            table.insert(parts, part)
+        end
+        
+        if #parts >= 2 then
+            storedBase = parts[1]
+            storedUserId = parts[2]
+        end
+    end)
+    
+    if not storedBase or not storedUserId then
+        DebugPrint("❌ Could not decode stored HWID")
+        return false, "decode_error"
+    end
+    
+    DebugPrint("🔍 Component check:")
+    DebugPrint("  getbase match: " .. (storedBase == currentBase and "✅" or "❌"))
+    DebugPrint("  UserId match: " .. (storedUserId == currentUserId and "✅" or "❌"))
+    
+    -- Check if EITHER getbase OR UserId matches
+    local baseMatches = (storedBase == currentBase)
+    local userIdMatches = (storedUserId == currentUserId)
+    
+    if baseMatches and userIdMatches then
+        DebugPrint("✅ Both match (shouldn't happen if exact failed, but ok)")
+        return true, "both"
+    elseif baseMatches and not userIdMatches then
+        DebugPrint("✅ getbase matches (UserId different - same PC, different account)")
+        return true, "base_only"
+    elseif not baseMatches and userIdMatches then
+        DebugPrint("✅ UserId matches (getbase different - same account, different PC/restart)")
+        return true, "userid_only"
+    else
+        DebugPrint("❌ Neither matches: Different PC AND different account")
+        return false, "no_match"
+    end
 end
 
 local function sendWebhook(hwid, userKey, keyInfo, status)
@@ -402,8 +460,9 @@ local function validateKey(userKey)
     
     task.wait(0.5)
     
-    local hwid = generateHWID()
+    local hwid, baseValue, userId = generateHWID()
     DebugPrint("🔐 HWID Generated")
+    DebugPrint("  Account: User #" .. userId)
     
     local keysData = fetchKeys()
     
@@ -524,35 +583,64 @@ local function validateKey(userKey)
         GUI.Visible = false
         task.wait(0.1)
         
-    elseif keyInfo.hwid == hwid then
-        -- HWID matches - allow access
-        GUI.StatusMessage = "✅ Welcome back!"
-        GUI.StatusColor = Colors.Success
-        notify("Authentication successful!", "Key System", 2)
-        DebugPrint("✅ HWID matched - Authentication successful!")
-        
-        -- Send webhook for returning user
-        sendWebhook(hwid, userKey, keyInfo, "returning")
-        
-        -- Mark as authenticated
-        GUI.Authenticated = true
-        
-        -- Immediately hide GUI
-        GUI.Visible = false
-        task.wait(0.1)
-        
     else
-        -- HWID mismatch - different device
-        GUI.StatusMessage = "❌ Key already bound to another device"
-        GUI.StatusColor = Colors.Error
-        GUI.Loading = false
-        notify("Key already bound to another device!", "Key System", 5)
-        DebugPrint("❌ HWID mismatch - Access denied")
-        DebugPrint("💡 Contact admin for HWID reset")
+        -- HWID exists, validate it
+        local isValid, matchType = validateHWID(keyInfo.hwid, hwid, baseValue, userId)
         
-        -- Send webhook for failed attempt
-        sendWebhook(hwid, userKey, keyInfo, "error")
-        return false
+        if isValid then
+            if matchType == "exact" or matchType == "both" then
+                -- Perfect match - same device, same account
+                GUI.StatusMessage = "✅ Welcome back!"
+                GUI.StatusColor = Colors.Success
+                notify("Authentication successful!", "Key System", 2)
+                DebugPrint("✅ Perfect match - Same device & account")
+                
+            elseif matchType == "userid_only" then
+                -- UserId match but getbase different - same account, different PC or restart
+                GUI.StatusMessage = "✅ Account verified!"
+                GUI.StatusColor = Colors.Success
+                notify("Account verified - Device signature updated", "Key System", 3)
+                DebugPrint("✅ UserId match - Same account (PC changed or restart)")
+                
+                -- Copy new HWID to clipboard
+                setclipboard(hwid)
+                notify("New HWID copied to clipboard", "Info", 2)
+                
+            elseif matchType == "base_only" then
+                -- getbase match but UserId different - same PC, different account
+                GUI.StatusMessage = "✅ Device verified!"
+                GUI.StatusColor = Colors.Success
+                notify("Device verified - Account changed", "Key System", 3)
+                DebugPrint("✅ getbase match - Same PC, different account")
+                
+                -- Copy new HWID to clipboard
+                setclipboard(hwid)
+                notify("New HWID copied to clipboard", "Info", 2)
+            end
+            
+            -- Send webhook for returning user
+            sendWebhook(hwid, userKey, keyInfo, "returning")
+            
+            -- Mark as authenticated
+            GUI.Authenticated = true
+            
+            -- Immediately hide GUI
+            GUI.Visible = false
+            task.wait(0.1)
+            
+        else
+            -- Neither getbase NOR UserId matches - completely different
+            GUI.StatusMessage = "❌ Key bound to different account & device"
+            GUI.StatusColor = Colors.Error
+            GUI.Loading = false
+            notify("Key bound to another user & device!", "Key System", 5)
+            DebugPrint("❌ No match - Different account AND different device")
+            DebugPrint("💡 Contact admin for key transfer")
+            
+            -- Send webhook for failed attempt
+            sendWebhook(hwid, userKey, keyInfo, "error")
+            return false
+        end
     end
     
     -- Load main script

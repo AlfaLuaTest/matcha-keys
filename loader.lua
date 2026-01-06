@@ -19,7 +19,7 @@ local CONFIG = {
     
     -- WEBHOOK (HWID gonderimi icin)
     WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE",
-    WEBHOOK_ENABLED = true,
+    WEBHOOK_ENABLED = false,
     
     -- ALTERNATIVE: Pastebin ile HWID gonderimi
     PASTEBIN_ENABLED = false,

@@ -1,6 +1,6 @@
 {
   "keys": {
-    "MATCHA-TEST-1234-ABCD": {
+    "123456": {
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "premium",
@@ -22,4 +22,5 @@
   "version": "1.0.0",
   "last_update": "2026-01-06T10:00:00Z",
   "maintenance": false
+
 }

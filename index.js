@@ -20,7 +20,7 @@ const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
 const WEBHOOK_PROFILE = {
     username: "Matcha Security",
-    avatar_url: "https://i.imgur.com/7lMjDnF.png"
+    avatar_url: "https://i.imgur.com/RjafEmC.gif"
 };
 
 // ═══════════════════════════════════════════════════

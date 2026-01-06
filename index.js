@@ -1,6 +1,6 @@
 // ╔════════════════════════════════════════════════════╗
-// ║    MATCHA WEBHOOK RELAY v3.1 - GitHub Integration  ║
-// ║    Sleep Mode Prevention + Auto HWID Update        ║
+// ║    MATCHA WEBHOOK RELAY v3.2 - Enhanced Features  ║
+// ║    Dynamic Webhook + Multi-Script Support         ║
 // ╚════════════════════════════════════════════════════╝
 
 import express from "express";
@@ -9,13 +9,42 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Personal Access Token
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_USER = process.env.GITHUB_USER || "AlfaLuaTest";
 const GITHUB_REPO = process.env.GITHUB_REPO || "matcha-keys";
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 
 // ═══════════════════════════════════════════════════
-// KEEP-ALIVE SYSTEM (Anti-Sleep)
+// WEBHOOK CONFIGURATION - PlaceId Based
+// ═══════════════════════════════════════════════════
+
+const WEBHOOK_PROFILES = {
+    // Varsayılan profil
+    "default": {
+        username: "Matcha Security",
+        avatar_url: "https://i.imgur.com/7lMjDnF.png"
+    },
+    // PlaceId bazlı profiller
+    "606849621": { // Jailbreak
+        username: "Matcha Jailbreak",
+        avatar_url: "https://i.imgur.com/jailbreak.png"
+    },
+    "2788229376": { // Da Hood
+        username: "Matcha Da Hood",
+        avatar_url: "https://i.imgur.com/dahood.png"
+    },
+    "3233893879": { // Bad Business
+        username: "Matcha Combat",
+        avatar_url: "https://i.imgur.com/combat.png"
+    }
+};
+
+function getWebhookProfile(placeId) {
+    return WEBHOOK_PROFILES[placeId] || WEBHOOK_PROFILES["default"];
+}
+
+// ═══════════════════════════════════════════════════
+// KEEP-ALIVE + RATE LIMITING (Önceki kodunuzdaki gibi)
 // ═══════════════════════════════════════════════════
 
 let lastActivity = Date.now();
@@ -23,20 +52,15 @@ let totalRequests = 0;
 let successfulWebhooks = 0;
 let failedWebhooks = 0;
 
-// Her 14 dakikada bir kendi kendine ping at
 setInterval(() => {
     fetch(`http://localhost:${PORT}/health`)
         .then(() => console.log("🔄 Self-ping: Stay awake"))
         .catch((err) => console.error("Self-ping failed:", err));
-}, 14 * 60 * 1000); // 14 dakika
-
-// ═══════════════════════════════════════════════════
-// RATE LIMITING
-// ═══════════════════════════════════════════════════
+}, 14 * 60 * 1000);
 
 const rateLimit = new Map();
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS = 15; // Max 15 req/min per IP
+const RATE_LIMIT_WINDOW = 60000;
+const MAX_REQUESTS = 15;
 
 function checkRateLimit(ip) {
     const now = Date.now();
@@ -59,7 +83,6 @@ function checkRateLimit(ip) {
     return true;
 }
 
-// Cleanup old rate limit entries every 5 minutes
 setInterval(() => {
     const now = Date.now();
     for (const [ip, data] of rateLimit.entries()) {
@@ -70,7 +93,7 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 // ═══════════════════════════════════════════════════
-// GITHUB INTEGRATION - UPDATE HWID IN KEYS.JSON
+// GITHUB INTEGRATION
 // ═══════════════════════════════════════════════════
 
 async function updateKeyHWIDInGitHub(keyName, newHWID) {
@@ -83,7 +106,6 @@ async function updateKeyHWIDInGitHub(keyName, newHWID) {
         const filePath = "keys.json";
         const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${filePath}`;
         
-        // 1. Get current file content and SHA
         console.log(`📡 Fetching keys.json from GitHub...`);
         const getResponse = await fetch(apiUrl, {
             method: "GET",
@@ -95,18 +117,17 @@ async function updateKeyHWIDInGitHub(keyName, newHWID) {
         });
 
         if (!getResponse.ok) {
-            throw new Error(`GitHub GET failed: ${getResponse.status} ${getResponse.statusText}`);
+            throw new Error(`GitHub GET failed: ${getResponse.status}`);
         }
 
         const fileData = await getResponse.json();
         const currentContent = Buffer.from(fileData.content, 'base64').toString('utf8');
         const currentSHA = fileData.sha;
         
-        // 2. Parse and update JSON
         const keysData = JSON.parse(currentContent);
         
         if (!keysData.keys[keyName]) {
-            console.error(`❌ Key "${keyName}" not found in keys.json`);
+            console.error(`❌ Key "${keyName}" not found`);
             return false;
         }
 
@@ -116,7 +137,6 @@ async function updateKeyHWIDInGitHub(keyName, newHWID) {
         const newContent = JSON.stringify(keysData, null, 2);
         const newContentBase64 = Buffer.from(newContent).toString('base64');
         
-        // 3. Commit updated file
         console.log(`📝 Updating key "${keyName}" with new HWID...`);
         const updateResponse = await fetch(apiUrl, {
             method: "PUT",
@@ -135,11 +155,10 @@ async function updateKeyHWIDInGitHub(keyName, newHWID) {
         });
 
         if (!updateResponse.ok) {
-            const errorText = await updateResponse.text();
-            throw new Error(`GitHub PUT failed: ${updateResponse.status} - ${errorText}`);
+            throw new Error(`GitHub PUT failed: ${updateResponse.status}`);
         }
 
-        console.log(`✅ Successfully updated HWID for key "${keyName}" in GitHub`);
+        console.log(`✅ HWID updated for key "${keyName}"`);
         return true;
 
     } catch (error) {
@@ -162,10 +181,9 @@ app.use((req, res, next) => {
 });
 
 // ═══════════════════════════════════════════════════
-// ROUTES
+// HEALTH CHECK ROUTES
 // ═══════════════════════════════════════════════════
 
-// Health check (for monitoring services)
 app.get("/", (req, res) => {
     const uptime = Math.floor(process.uptime());
     const hours = Math.floor(uptime / 3600);
@@ -174,7 +192,7 @@ app.get("/", (req, res) => {
     res.json({
         status: "✅ online",
         service: "Matcha Webhook Relay",
-        version: "3.1.0",
+        version: "3.2.0",
         uptime: `${hours}h ${minutes}m`,
         stats: {
             totalRequests,
@@ -183,8 +201,7 @@ app.get("/", (req, res) => {
             lastActivity: new Date(lastActivity).toISOString()
         },
         webhook: WEBHOOK_URL ? "✅ configured" : "❌ not configured",
-        github: GITHUB_TOKEN ? "✅ configured" : "❌ not configured",
-        rateLimitEntries: rateLimit.size
+        github: GITHUB_TOKEN ? "✅ configured" : "❌ not configured"
     });
 });
 
@@ -196,20 +213,18 @@ app.get("/ping", (req, res) => {
     res.send("pong");
 });
 
-// Stats endpoint
 app.get("/stats", (req, res) => {
     res.json({
         totalRequests,
         successfulWebhooks,
         failedWebhooks,
         uptime: Math.floor(process.uptime()),
-        lastActivity: new Date(lastActivity).toISOString(),
-        rateLimitActive: rateLimit.size
+        lastActivity: new Date(lastActivity).toISOString()
     });
 });
 
 // ═══════════════════════════════════════════════════
-// KEY ACTIVATION WEBHOOK
+// KEY ACTIVATION WEBHOOK (Enhanced)
 // ═══════════════════════════════════════════════════
 
 app.get("/activation", async (req, res) => {
@@ -219,24 +234,20 @@ app.get("/activation", async (req, res) => {
         if (!checkRateLimit(ip)) {
             return res.status(429).json({ 
                 error: "rate_limit",
-                message: "Too many requests. Wait 1 minute.",
-                retryAfter: 60
+                message: "Too many requests. Wait 1 minute."
             });
         }
         
         const dataB64 = req.query.data;
         if (!dataB64) {
             return res.status(400).json({ 
-                error: "missing_data",
-                message: "No data parameter"
+                error: "missing_data"
             });
         }
         
-        // Decode data
         const json = Buffer.from(dataB64, "base64").toString("utf8");
         const data = JSON.parse(json);
         
-        // Validate required fields
         const required = ["key", "hwid", "status"];
         for (const field of required) {
             if (!data[field]) {
@@ -247,32 +258,36 @@ app.get("/activation", async (req, res) => {
             }
         }
         
-        // Build Discord embed based on status
+        // Get webhook profile based on PlaceId
+        const profile = getWebhookProfile(data.placeId);
+        
         let title, color, emoji;
         
         switch(data.status) {
             case "success":
                 title = "Key Activation Success";
-                color = 0x00FF00; // Green
+                color = 0x00FF00;
                 emoji = "✅";
                 break;
             case "returning":
                 title = "Returning User";
-                color = 0xFFAA00; // Orange
+                color = 0xFFAA00;
                 emoji = "🔄";
                 break;
             case "error":
                 title = "Activation Failed";
-                color = 0xFF0000; // Red
+                color = 0xFF0000;
                 emoji = "❌";
                 break;
             default:
                 title = "Key Activity";
-                color = 0x0099FF; // Blue
+                color = 0x0099FF;
                 emoji = "ℹ️";
         }
         
         const embed = {
+            username: profile.username,
+            avatar_url: profile.avatar_url,
             embeds: [{
                 title: `${emoji} ${title}`,
                 color: color,
@@ -284,7 +299,7 @@ app.get("/activation", async (req, res) => {
                     },
                     {
                         name: "💻 HWID",
-                        value: `\`\`\`${data.hwid}\`\`\``,
+                        value: `\`\`\`${data.hwid.substring(0, 40)}...\`\`\``,
                         inline: false
                     },
                     {
@@ -294,7 +309,7 @@ app.get("/activation", async (req, res) => {
                     },
                     {
                         name: "🎮 Game",
-                        value: `PlaceId: ${data.placeId || "Unknown"}`,
+                        value: data.gameName || "Unknown Game",
                         inline: true
                     },
                     {
@@ -309,13 +324,12 @@ app.get("/activation", async (req, res) => {
                     }
                 ],
                 footer: {
-                    text: `Matcha Key System v3.1 | Total Requests: ${totalRequests}`
+                    text: `Matcha v3.2 | Requests: ${totalRequests}`
                 },
                 timestamp: new Date().toISOString()
             }]
         };
         
-        // Send to Discord
         const response = await fetch(WEBHOOK_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -323,7 +337,7 @@ app.get("/activation", async (req, res) => {
         });
         
         if (!response.ok) {
-            throw new Error(`Discord API: ${response.status} ${response.statusText}`);
+            throw new Error(`Discord API: ${response.status}`);
         }
         
         successfulWebhooks++;
@@ -331,8 +345,7 @@ app.get("/activation", async (req, res) => {
         
         res.json({ 
             success: true,
-            message: "Webhook delivered",
-            webhookId: successfulWebhooks
+            message: "Webhook delivered"
         });
         
     } catch (error) {
@@ -346,7 +359,7 @@ app.get("/activation", async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
-// UPDATE HWID IN GITHUB (New Endpoint)
+// UPDATE HWID
 // ═══════════════════════════════════════════════════
 
 app.get("/update-hwid", async (req, res) => {
@@ -355,8 +368,7 @@ app.get("/update-hwid", async (req, res) => {
         
         if (!checkRateLimit(ip)) {
             return res.status(429).json({ 
-                error: "rate_limit",
-                retryAfter: 60
+                error: "rate_limit"
             });
         }
         
@@ -370,39 +382,36 @@ app.get("/update-hwid", async (req, res) => {
         
         if (!data.key || !data.hwid) {
             return res.status(400).json({ 
-                error: "invalid_data",
-                message: "Missing key or hwid"
+                error: "invalid_data"
             });
         }
         
-        console.log(`🔧 HWID Update request: Key=${data.key}, HWID=${data.hwid.substring(0, 20)}...`);
+        console.log(`🔧 HWID Update: Key=${data.key}`);
         
-        // Update GitHub
         const success = await updateKeyHWIDInGitHub(data.key, data.hwid);
         
         if (success) {
             res.json({ 
                 success: true,
-                message: "HWID updated in GitHub"
+                message: "HWID updated"
             });
         } else {
             res.status(500).json({ 
                 success: false,
-                message: "Failed to update GitHub"
+                message: "Update failed"
             });
         }
         
     } catch (error) {
         console.error("❌ Update HWID error:", error.message);
         res.status(500).json({ 
-            error: "internal_error",
-            message: error.message
+            error: "internal_error"
         });
     }
 });
 
 // ═══════════════════════════════════════════════════
-// UNAUTHORIZED ACCESS ALERT
+// UNAUTHORIZED ACCESS (Enhanced)
 // ═══════════════════════════════════════════════════
 
 app.get("/unauthorized", async (req, res) => {
@@ -410,10 +419,7 @@ app.get("/unauthorized", async (req, res) => {
         const ip = req.ip || req.connection.remoteAddress;
         
         if (!checkRateLimit(ip)) {
-            return res.status(429).json({ 
-                error: "rate_limit",
-                retryAfter: 60
-            });
+            return res.status(429).json({ error: "rate_limit" });
         }
         
         const dataB64 = req.query.data;
@@ -424,11 +430,15 @@ app.get("/unauthorized", async (req, res) => {
         const json = Buffer.from(dataB64, "base64").toString("utf8");
         const data = JSON.parse(json);
         
+        const profile = getWebhookProfile(data.placeId);
+        
         const embed = {
+            username: profile.username,
+            avatar_url: profile.avatar_url,
             content: "@everyone 🚨 **SECURITY ALERT**",
             embeds: [{
                 title: "🚨 UNAUTHORIZED ACCESS ATTEMPT",
-                description: "Someone tried to use a key bound to another device!",
+                description: "Key theft detected - Device mismatch!",
                 color: 0xFF0000,
                 fields: [
                     {
@@ -438,12 +448,12 @@ app.get("/unauthorized", async (req, res) => {
                     },
                     {
                         name: "❌ Attempted HWID",
-                        value: `\`\`\`${data.attemptedHWID}\`\`\``,
+                        value: `\`\`\`${data.attemptedHWID.substring(0, 40)}...\`\`\``,
                         inline: false
                     },
                     {
                         name: "✅ Bound HWID",
-                        value: `\`\`\`${data.boundHWID}\`\`\``,
+                        value: `\`\`\`${data.boundHWID.substring(0, 40)}...\`\`\``,
                         inline: false
                     },
                     {
@@ -453,12 +463,12 @@ app.get("/unauthorized", async (req, res) => {
                     },
                     {
                         name: "🎮 Game",
-                        value: `PlaceId: ${data.placeId || "Unknown"}`,
+                        value: data.gameName || "Unknown",
                         inline: true
                     }
                 ],
                 footer: {
-                    text: "🔒 Key Theft Detection System"
+                    text: "🔒 Matcha Security System"
                 },
                 timestamp: new Date().toISOString()
             }]
@@ -471,7 +481,7 @@ app.get("/unauthorized", async (req, res) => {
         });
         
         successfulWebhooks++;
-        console.log(`🚨 Unauthorized attempt logged: ${data.key.substring(0, 10)}...`);
+        console.log(`🚨 Unauthorized attempt: ${data.key.substring(0, 10)}...`);
         
         res.json({ success: true });
         
@@ -483,7 +493,7 @@ app.get("/unauthorized", async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
-// GENERIC LOG ENDPOINT
+// GENERIC LOG
 // ═══════════════════════════════════════════════════
 
 app.get("/log", async (req, res) => {
@@ -502,8 +512,12 @@ app.get("/log", async (req, res) => {
         const json = Buffer.from(dataB64, "base64").toString("utf8");
         const data = JSON.parse(json);
         
+        const profile = getWebhookProfile(data.placeId);
+        
         const message = {
-            content: `📋 **Matcha Log**\n${data.message || "Generic log entry"}`,
+            username: profile.username,
+            avatar_url: profile.avatar_url,
+            content: `📋 **Log**\n${data.message || "Generic entry"}`,
             embeds: data.embed ? [data.embed] : []
         };
         
@@ -524,51 +538,25 @@ app.get("/log", async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
-// ADMIN COMMANDS (Optional)
-// ═══════════════════════════════════════════════════
-
-app.get("/admin/reset-stats", (req, res) => {
-    const token = req.query.token;
-    const adminToken = process.env.ADMIN_TOKEN || "changeme";
-    
-    if (token !== adminToken) {
-        return res.status(403).json({ error: "unauthorized" });
-    }
-    
-    totalRequests = 0;
-    successfulWebhooks = 0;
-    failedWebhooks = 0;
-    rateLimit.clear();
-    
-    res.json({ success: true, message: "Stats reset" });
-});
-
-// ═══════════════════════════════════════════════════
-// ERROR HANDLER
+// ERROR HANDLERS
 // ═══════════════════════════════════════════════════
 
 app.use((err, req, res, next) => {
     console.error("❌ Global error:", err);
     res.status(500).json({ 
-        error: "server_error",
-        message: "Internal server error"
+        error: "server_error"
     });
 });
 
-// 404 handler
 app.use((req, res) => {
     res.status(404).json({
         error: "not_found",
-        message: "Endpoint not found",
         availableEndpoints: [
             "GET /",
             "GET /health",
-            "GET /ping",
-            "GET /stats",
             "GET /activation?data=<base64>",
             "GET /update-hwid?data=<base64>",
-            "GET /unauthorized?data=<base64>",
-            "GET /log?data=<base64>"
+            "GET /unauthorized?data=<base64>"
         ]
     });
 });
@@ -579,13 +567,12 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
     console.log("╔════════════════════════════════════════════════════╗");
-    console.log("║     MATCHA WEBHOOK RELAY v3.1 - READY             ║");
+    console.log("║     MATCHA WEBHOOK RELAY v3.2 - ENHANCED          ║");
     console.log("╚════════════════════════════════════════════════════╝");
-    console.log(`✅ Server running on port ${PORT}`);
-    console.log(`📡 Discord webhook: ${WEBHOOK_URL ? "✅ Configured" : "❌ NOT CONFIGURED"}`);
-    console.log(`🔧 GitHub integration: ${GITHUB_TOKEN ? "✅ Configured" : "❌ NOT CONFIGURED"}`);
-    console.log(`🛡️  Rate limiting: ${MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW/1000}s`);
-    console.log(`🔄 Self-ping active: Every 14 minutes`);
-    console.log(`⏰ Started at: ${new Date().toISOString()}`);
+    console.log(`✅ Server: port ${PORT}`);
+    console.log(`📡 Webhook: ${WEBHOOK_URL ? "✅" : "❌"}`);
+    console.log(`🔧 GitHub: ${GITHUB_TOKEN ? "✅" : "❌"}`);
+    console.log(`🎮 Profiles: ${Object.keys(WEBHOOK_PROFILES).length} configured`);
+    console.log(`⏰ Started: ${new Date().toISOString()}`);
     console.log("═══════════════════════════════════════════════════════");
 });

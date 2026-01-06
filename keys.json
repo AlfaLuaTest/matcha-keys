@@ -1,147 +1,61 @@
 {
   "scripts": {
     "606849621": {
-      "name": "Jailbreak",
+      "name": "Jailbreak Script",
       "url": "https://raw.githubusercontent.com/user/repo/main/jailbreak.lua",
-      "enabled": true,
-      "keys": [
-        "JAILBREAK-KEY-1",
-        "JAILBREAK-KEY-2"
-      ]
+      "enabled": true
     },
     "2788229376": {
-      "name": "Da Hood",
+      "name": "Da Hood Script",
       "url": "https://raw.githubusercontent.com/orbiacc/SOUND-SPACE/refs/heads/main/Sound%20Space.lua",
-      "enabled": true,
-      "keys": [
-        "DAHOOD-KEY-1",
-        "DAHOOD-KEY-2"
-      ]
+      "enabled": true
     },
     "3233893879": {
-      "name": "Bad Business",
+      "name": "Bad Business Script",
       "url": "https://raw.githubusercontent.com/user/repo/main/combat.lua",
-      "enabled": true,
-      "keys": [
-        "COMBAT-KEY-1"
-      ]
+      "enabled": true
     },
     "default": {
       "name": "Pandi's Aim Trainer",
       "url": "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua",
-      "enabled": true,
-      "keys": [
-        "123456",
-        "MATCHA-TEST-1234-ABCD"
-      ]
+      "enabled": true
     }
   },
   "keys": {
-    "123456": {
-      "hwid": "MTQwNjk4MTA4OTUyNTc2LW5pbA==",
-      "expires": "3000-12-31",
-      "tier": "premium",
-      "created": "2026-01-06",
-      "max_devices": 1,
-      "activated": true,
-      "allowed_scripts": [
-        "default"
-      ],
-      "notes": "Universal key"
-    },
-    "JAILBREAK-KEY-1": {
+    "MATCHA-TEST-KEY-123": {
       "hwid": null,
       "expires": "2026-12-31",
-      "tier": "premium",
-      "created": "2026-01-06",
-      "max_devices": 1,
+      "tier": "Premium",
+      "games": ["default"],
       "activated": true,
-      "allowed_scripts": [
-        "606849621"
-      ],
-      "notes": "Jailbreak exclusive"
+      "notes": "Test key for Aim Trainer"
     },
-    "JAILBREAK-KEY-2": {
+    "JAILBREAK-PREMIUM-001": {
       "hwid": null,
       "expires": "2026-12-31",
-      "tier": "basic",
-      "created": "2026-01-06",
-      "max_devices": 1,
+      "tier": "Premium",
+      "games": ["606849621"],
       "activated": true,
-      "allowed_scripts": [
-        "606849621"
-      ],
-      "notes": "Jailbreak basic tier"
+      "notes": "Jailbreak only"
     },
-    "DAHOOD-KEY-1": {
-      "hwid": "MTQwNjk4MTA4OTUyNTc2LW5pbA==",
-      "expires": "2026-12-31",
-      "tier": "premium",
-      "created": "2026-01-06",
-      "max_devices": 1,
-      "activated": true,
-      "allowed_scripts": [
-        "2788229376"
-      ],
-      "notes": "Da Hood exclusive"
-    },
-    "DAHOOD-KEY-2": {
+    "DAHOOD-PREMIUM-001": {
       "hwid": null,
       "expires": "2026-12-31",
-      "tier": "premium",
-      "created": "2026-01-06",
-      "max_devices": 1,
+      "tier": "Premium",
+      "games": ["2788229376"],
       "activated": true,
-      "allowed_scripts": [
-        "2788229376"
-      ],
-      "notes": "Da Hood premium"
+      "notes": "Da Hood only"
     },
-    "COMBAT-KEY-1": {
+    "ALL-GAMES-VIP-001": {
       "hwid": null,
       "expires": "2026-12-31",
-      "tier": "premium",
-      "created": "2026-01-06",
-      "max_devices": 1,
+      "tier": "VIP",
+      "games": ["606849621", "2788229376", "3233893879", "default"],
       "activated": true,
-      "allowed_scripts": [
-        "3233893879"
-      ],
-      "notes": "Combat game exclusive"
-    },
-    "MATCHA-TEST-1234-ABCD": {
-      "hwid": null,
-      "expires": "2026-12-31",
-      "tier": "premium",
-      "created": "2026-01-06",
-      "max_devices": 1,
-      "activated": true,
-      "allowed_scripts": [
-        "default"
-      ],
-      "notes": "Universal test key"
-    },
-    "MULTI-ACCESS-KEY": {
-      "hwid": null,
-      "expires": "2026-12-31",
-      "tier": "vip",
-      "created": "2026-01-06",
-      "max_devices": 1,
-      "activated": true,
-      "allowed_scripts": [
-        "606849621",
-        "2788229376",
-        "default"
-      ],
-      "notes": "Multi-game access"
+      "notes": "Access to all games"
     }
   },
-  "version": "2.0.0",
-  "last_update": "2026-01-06T18:53:22.446Z",
-  "maintenance": false,
-  "info": {
-    "total_keys": 8,
-    "active_keys": 8,
-    "total_scripts": 4
-  }
+  "version": "3.0.0",
+  "last_update": "2026-01-06T20:00:00.000Z",
+  "maintenance": false
 }

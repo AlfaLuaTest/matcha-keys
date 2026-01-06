@@ -26,7 +26,9 @@
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "Premium",
-      "games": ["default"],
+      "games": [
+        "default"
+      ],
       "activated": true,
       "notes": "Test key for Aim Trainer"
     },
@@ -34,7 +36,9 @@
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "Premium",
-      "games": ["606849621"],
+      "games": [
+        "606849621"
+      ],
       "activated": true,
       "notes": "Jailbreak only"
     },
@@ -42,7 +46,9 @@
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "Premium",
-      "games": ["2788229376"],
+      "games": [
+        "2788229376"
+      ],
       "activated": true,
       "notes": "Da Hood only"
     },
@@ -50,12 +56,32 @@
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "VIP",
-      "games": ["606849621", "2788229376", "3233893879", "default"],
+      "games": [
+        "606849621",
+        "2788229376",
+        "3233893879",
+        "default"
+      ],
       "activated": true,
       "notes": "Access to all games"
+    },
+    "TKI0-A9JM-ZVA4-6OIG": {
+      "hwid": null,
+      "expires": "3000-12-31",
+      "tier": "Premium",
+      "games": [
+        "default"
+      ],
+      "activated": true,
+      "notes": "Unknown Game - Purchased by GeneralTimeMermaid (4018633058)",
+      "created": "2026-01-06T20:12:18.140Z",
+      "purchaser": {
+        "userId": "4018633058",
+        "username": "GeneralTimeMermaid"
+      }
     }
   },
   "version": "3.0.0",
-  "last_update": "2026-01-06T20:00:00.000Z",
+  "last_update": "2026-01-06T20:12:18.140Z",
   "maintenance": false
 }

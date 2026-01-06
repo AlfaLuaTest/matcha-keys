@@ -18,12 +18,12 @@ local CONFIG = {
     MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/orbiacc/Pandi-s-Aim-Trainer/refs/heads/main/PAND%C4%B0SA%C4%B0MTRA%C4%B0NEROBF.lua",
     
     -- WEBHOOK (HWID gönderimi için)
-    WEBHOOK_URL = "https://discord.com/api/webhooks/1458094582741864541/JMdoGTJoJ1iyDJ1cxZF12bSzD0SfkuYO4WxKODhN3laVF-zlUT8oAcrb-N1aUMLEr2if", -- ← Discord webhook URL'nizi buraya
+    WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE", -- ← Discord webhook URL'nizi buraya
     WEBHOOK_ENABLED = false,                        -- ← false yaparak kapatabilirsiniz
     
     -- ALTERNATIVE: Pastebin ile HWID gönderimi (Webhook çalışmazsa)
-    PASTEBIN_ENABLED = true,                      -- ← true yapın webhook yerine pastebin kullanmak için
-    PASTEBIN_API_KEY = "eBlnuiNQCLH6KZ2iaxIGtWiiZULxrUED",    -- ← Pastebin API key
+    PASTEBIN_ENABLED = false,                      -- ← true yapın webhook yerine pastebin kullanmak için
+    PASTEBIN_API_KEY = "YOUR_PASTEBIN_API_KEY",    -- ← Pastebin API key
     
     -- DEBUG MODE
     DEBUG_MODE = true  -- ← false yaparak debug mesajlarını kapatın
@@ -465,22 +465,48 @@ local function validateKey(userKey)
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Key expired!", "Key System", 3)
+        DebugPrint("❌ Key expired!")
+        sendWebhook(hwid, userKey, keyInfo, "error")
         return false
     end
     
-    -- Check HWID
-    if keyInfo.hwid == nil then
+    DebugPrint("✅ Key expiration check passed")
+    
+    -- Check if key is activated/enabled
+    if keyInfo.activated == false then
+        GUI.StatusMessage = "❌ Key is not activated yet"
+        GUI.StatusColor = Colors.Error
+        GUI.Loading = false
+        notify("Key not activated by admin!", "Key System", 5)
+        DebugPrint("❌ Key is not activated (activated = false)")
+        DebugPrint("💡 Contact admin to activate this key")
+        sendWebhook(hwid, userKey, keyInfo, "error")
+        return false
+    end
+    
+    DebugPrint("✅ Key activation status check passed")
+    
+    -- Check HWID binding
+    DebugPrint("🔍 Checking HWID binding...")
+    DebugPrint("  Current HWID in database: " .. tostring(keyInfo.hwid))
+    DebugPrint("  Your HWID: " .. hwid)
+    
+    if keyInfo.hwid == nil or keyInfo.hwid == "null" or keyInfo.hwid == "" then
+        -- First time activation - bind HWID
         GUI.StatusMessage = "✅ Key activated! HWID copied to clipboard"
         GUI.StatusColor = Colors.Success
         notify("Key activated successfully!", "Key System", 3)
-        notify("HWID copied to clipboard", "Admin", 3)
+        notify("HWID copied to clipboard - Send to admin!", "Important", 5)
         setclipboard(hwid)
-        DebugPrint("✅ First activation - HWID copied to clipboard")
+        DebugPrint("✅ First activation - HWID needs to be bound")
+        DebugPrint("📋 HWID copied to clipboard")
+        DebugPrint("⚠️ IMPORTANT: Send this HWID to admin to complete activation!")
         
         -- Send webhook for new activation
         sendWebhook(hwid, userKey, keyInfo, "success")
         
     elseif keyInfo.hwid == hwid then
+        -- HWID matches - allow access
         GUI.StatusMessage = "✅ Welcome back!"
         GUI.StatusColor = Colors.Success
         notify("Authentication successful!", "Key System", 2)
@@ -490,13 +516,15 @@ local function validateKey(userKey)
         sendWebhook(hwid, userKey, keyInfo, "returning")
         
     else
+        -- HWID mismatch - different device
         GUI.StatusMessage = "❌ Key already bound to another device"
         GUI.StatusColor = Colors.Error
         GUI.Loading = false
         notify("Key already bound to another device!", "Key System", 5)
         DebugPrint("❌ HWID mismatch!")
-        DebugPrint("  Expected: " .. keyInfo.hwid)
+        DebugPrint("  Expected: " .. tostring(keyInfo.hwid))
         DebugPrint("  Got: " .. hwid)
+        DebugPrint("💡 Contact admin for HWID reset")
         
         -- Send webhook for failed attempt
         sendWebhook(hwid, userKey, keyInfo, "error")

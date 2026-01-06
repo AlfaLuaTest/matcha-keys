@@ -7,16 +7,34 @@
       "created": "2026-01-06",
       "max_devices": 1,
       "activated": false,
-      "notes": "Simple test key"
+      "notes": "Active key - ready to use"
     },
-    "MATCHA-TEST-1234-ABCD": {
+    "INACTIVE-KEY-TEST": {
       "hwid": null,
       "expires": "2026-12-31",
       "tier": "premium",
       "created": "2026-01-06",
       "max_devices": 1,
       "activated": false,
-      "notes": "Test key for demo"
+      "notes": "Inactive key - admin needs to activate"
+    },
+    "BOUND-KEY-EXAMPLE": {
+      "hwid": "MTQwNjk4MTA4OTUyNTc2LTc0NjM0MTYxMzItMTM3NDYzNTUzMDM0NzM4",
+      "expires": "2026-12-31",
+      "tier": "premium",
+      "created": "2026-01-05",
+      "max_devices": 1,
+      "activated": true,
+      "notes": "Already bound to specific device"
+    },
+    "EXPIRED-KEY-TEST": {
+      "hwid": null,
+      "expires": "2025-01-01",
+      "tier": "basic",
+      "created": "2025-01-01",
+      "max_devices": 1,
+      "activated": true,
+      "notes": "Expired key"
     },
     "MATCHA-DEMO-5678-EFGH": {
       "hwid": "Qk1TRVg0Nzg5MDEyMzQ1Njc=",
@@ -25,12 +43,24 @@
       "created": "2026-01-05",
       "max_devices": 1,
       "activated": true,
-      "notes": "Already activated - bound to device"
+      "notes": "Demo key - bound to device"
+    },
+    "MATCHA-TEST-1234-ABCD": {
+      "hwid": null,
+      "expires": "2026-12-31",
+      "tier": "premium",
+      "created": "2026-01-06",
+      "max_devices": 1,
+      "activated": true,
+      "notes": "Test key - ready for activation"
     }
   },
   "version": "1.0.0",
-  "last_update": "2026-01-06T10:00:00Z",
-  "maintenance": false
+  "last_update": "2026-01-06T16:00:00Z",
+  "maintenance": false,
+  "info": {
+    "total_keys": 6,
+    "active_keys": 5,
+    "inactive_keys": 1
+  }
 }
-
-

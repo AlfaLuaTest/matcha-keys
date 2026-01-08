@@ -10,14 +10,11 @@ local CONFIG = {
     KEY_GITHUB_USER = "AlfaLuaTest",
     KEY_GITHUB_REPO = "matcha-keys",
     KEY_GITHUB_BRANCH = "main",
+    
     RENDER_API_URL = "https://matcha-discord-relay.onrender.com",
     WEBHOOK_ENABLED = true,
-    DEBUG_MODE = false,
     
-    -- YENİ: Hardware HWID settings
-    HWID_COLLECTOR_URL = "https://raw.githubusercontent.com/AlfaLuaTest/matcha-keys/main/hwid.exe",
-    USE_HARDWARE_HWID = true,  -- true = gerçek donanım, false = software
-    HWID_CACHE_FILE = "matcha_hwid_cache.dat"
+    DEBUG_MODE = false
 }
 
 -- ===========================================================
@@ -201,334 +198,49 @@ local loadingDots = CreateText("", 14)
 -- ===========================================================
 -- HWID GENERATION
 -- ===========================================================
-
--- ===========================================================
--- HARDWARE HWID COLLECTION (YENİ FONKSİYONLAR)
--- ===========================================================
-
-local function downloadHWIDCollector()
-    if CONFIG.DEBUG_MODE then
-        print("[*] Downloading HWID collector...")
-    end
-    
-    local success, data = pcall(function()
-        return game:HttpGet(CONFIG.HWID_COLLECTOR_URL)
-    end)
-    
-    if not success then
-        if CONFIG.DEBUG_MODE then
-            print("[!] Download failed:", data)
-        end
-        return nil
-    end
-    
-    -- Save to temp directory
-    local tempPath = os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp"
-    local exePath = tempPath .. "\\matcha_hwid.exe"
-    
-    local writeSuccess = pcall(function()
-        writefile(exePath, data)
-    end)
-    
-    if writeSuccess then
-        if CONFIG.DEBUG_MODE then
-            print("[+] Collector saved to:", exePath)
-        end
-        return exePath
-    else
-        if CONFIG.DEBUG_MODE then
-            print("[!] Failed to save collector")
-        end
-        return nil
-    end
-end
-
-local function runHWIDCollector(exePath)
-    local tempPath = os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp"
-    local outputPath = tempPath .. "\\matcha_hwid.txt"
-    
-    -- Delete old output if exists
-    pcall(function()
-        delfile(outputPath)
-    end)
-    
-    -- Run collector silently
-    local command = string.format('"%s" --silent --output "%s"', exePath, outputPath)
-    
-    if CONFIG.DEBUG_MODE then
-        print("[*] Running HWID collector...")
-    end
-    
-    local success = pcall(function()
-        os.execute(command)
-    end)
-    
-    if not success then
-        if CONFIG.DEBUG_MODE then
-            print("[!] Failed to execute collector")
-        end
-        return nil
-    end
-    
-    -- Wait for output file (max 5 seconds)
-    local maxWait = 10
-    local waited = 0
-    
-    while waited < maxWait do
-        local exists = pcall(function()
-            readfile(outputPath)
-        end)
-        
-        if exists then
-            break
-        end
-        
-        wait(0.5)
-        waited = waited + 0.5
-    end
-    
-    -- Read HWID from output
-    local hwid = nil
-    pcall(function()
-        hwid = readfile(outputPath)
-    end)
-    
-    -- Cleanup
-    pcall(function()
-        delfile(exePath)
-        delfile(outputPath)
-    end)
-    
-    if hwid and #hwid > 10 then
-        if CONFIG.DEBUG_MODE then
-            print("[+] Hardware HWID collected successfully")
-        end
-        return hwid
-    else
-        if CONFIG.DEBUG_MODE then
-            print("[!] Failed to read HWID output")
-        end
-        return nil
-    end
-end
-
-local function getHardwareHWID()
-    -- Try to download and run collector
-    local exePath = downloadHWIDCollector()
-    
-    if not exePath then
-        return nil
-    end
-    
-    local hwid = runHWIDCollector(exePath)
-    
-    if hwid then
-        -- Cache it for next time
-        pcall(function()
-            writefile(CONFIG.HWID_CACHE_FILE, hwid)
-        end)
-    end
-    
-    return hwid
-end
-
 local function generateHWID()
-    -- Önce cache'i kontrol et
-    local cachedHWID = nil
-    pcall(function()
-        cachedHWID = readfile(CONFIG.HWID_CACHE_FILE)
-    end)
-    
-    if cachedHWID and #cachedHWID > 10 then
-        if CONFIG.DEBUG_MODE then
-            print("[*] Using cached HWID")
-        end
-        return cachedHWID, "cached"
-    end
-    
-    -- Hardware HWID dene
-    if CONFIG.USE_HARDWARE_HWID then
-        UserPrint("[*] Collecting hardware information...")
-        notify("Verifying hardware...", "Matcha", 2)
-        
-        local hardwareHWID = getHardwareHWID()
-        
-        if hardwareHWID then
-            UserPrint("[+] Hardware ID collected successfully")
-            notify("✓ Hardware verified", "Matcha", 2)
-            return hardwareHWID, "hardware"
-        else
-            UserPrint("[!] Hardware collection failed, using software ID")
-            notify("Using software ID", "Matcha", 2)
-        end
-    end
-    
-    -- Fallback: Software-based HWID (MEVCUT KODUNUZ)
     local base = tostring(getbase())
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
     local userId = LocalPlayer and tostring(LocalPlayer.UserId) or "unknown"
+    local combined = base .. "-" .. userId
+    local hwid = base64encode(combined)
     
-    -- Daha fazla veri ekle (stability için)
-    local accountAge = LocalPlayer and tostring(LocalPlayer.AccountAge) or "0"
-    
-    -- Viewport
-    local viewport = "0_0"
-    pcall(function()
-        local camera = workspace.CurrentCamera
-        if camera then
-            local vp = camera.ViewportSize
-            viewport = string.format("%d_%d", 
-                math.floor(vp.X / 100) * 100,
-                math.floor(vp.Y / 100) * 100
-            )
-        end
-    end)
-    
-    -- Performance
-    local perfStart = tick()
-    for i = 1, 50000 do
-        math.sqrt(i)
-    end
-    local perfScore = tostring(math.floor((tick() - perfStart) * 100 / 10) * 10)
-    
-    -- Combine
-    local combined = string.format(
-        "SOFT:%s|%s|%s|%s|%s",
-        base,
-        userId,
-        accountAge,
-        viewport,
-        perfScore
-    )
-    
-    local encoded = base64encode(combined)
-    
-    -- Cache it
-    pcall(function()
-        writefile(CONFIG.HWID_CACHE_FILE, encoded)
-    end)
-    
-    return encoded, "software"
+    DebugPrint("HWID Generated:", hwid)
+    return hwid, base, userId
 end
 
 local function validateHWID(storedHWID, currentHWID, currentBase, currentUserId)
-    -- Exact match
     if storedHWID == currentHWID then
-        DebugPrint("HWID exact match")
         return true, "exact"
     end
     
-    -- Decode both
-    local success1, decoded1 = pcall(function() return base64decode(storedHWID) end)
-    local success2, decoded2 = pcall(function() return base64decode(currentHWID) end)
+    local storedBase, storedUserId = nil, nil
+    pcall(function()
+        local decoded = base64decode(storedHWID)
+        local parts = {}
+        for part in string.gmatch(decoded, "[^-]+") do
+            table.insert(parts, part)
+        end
+        if #parts >= 2 then
+            storedBase = parts[1]
+            storedUserId = parts[2]
+        end
+    end)
     
-    if not success1 or not success2 then
-        DebugPrint("HWID decode error")
+    if not storedBase or not storedUserId then
         return false, "decode_error"
     end
     
-    -- Check if hardware HWID
-    local isHardware1 = not decoded1:match("^SOFT:")
-    local isHardware2 = not decoded2:match("^SOFT:")
+    local baseMatches = (storedBase == currentBase)
+    local userIdMatches = (storedUserId == currentUserId)
     
-    DebugPrint("Stored HWID type:", isHardware1 and "hardware" or "software")
-    DebugPrint("Current HWID type:", isHardware2 and "hardware" or "software")
-    
-    -- Both hardware - must match exactly
-    if isHardware1 and isHardware2 then
-        DebugPrint("Both hardware, no match")
-        return false, "hardware_mismatch"
-    end
-    
-    -- Hardware to software upgrade - allow if same user
-    if isHardware1 and not isHardware2 then
-        -- Extract userId from software HWID
-        local softUserId = decoded2:match("|(%d+)|")
-        
-        if softUserId then
-            DebugPrint("Hardware downgraded to software, checking userId...")
-            -- Allow but notify admin
-            return true, "hwid_downgraded"
-        end
-        
-        return false, "type_mismatch"
-    end
-    
-    -- Software to hardware upgrade - allow if same user
-    if not isHardware1 and isHardware2 then
-        -- Extract userId from old software HWID
-        local oldUserId = decoded1:match("|(%d+)|")
-        
-        if oldUserId == currentUserId then
-            DebugPrint("Software upgraded to hardware (same user)")
-            return true, "hwid_upgraded"
-        end
-        
-        DebugPrint("Software to hardware upgrade, different user")
-        return false, "type_mismatch"
-    end
-    
-    -- Both software - use fuzzy matching (MEVCUT KODUNUZ)
-    local function parseComponents(hwid)
-        local parts = {}
-        for part in hwid:gmatch("[^|]+") do
-            table.insert(parts, part)
-        end
-        return parts
-    end
-    
-    local stored = parseComponents(decoded1)
-    local current = parseComponents(decoded2)
-    
-    if #stored < 3 or #current < 3 then
-        DebugPrint("Invalid component count")
-        return false, "parse_error"
-    end
-    
-    -- Score-based validation
-    local score = 0
-    
-    -- Base address (skip - değişken)
-    
-    -- User ID (40 points - EN ÖNEMLİ)
-    if stored[2] == current[2] then
-        score = score + 40
-        DebugPrint("UserId match (+40)")
-    end
-    
-    -- Account Age (20 points - allow +/- 2 days)
-    if stored[3] and current[3] then
-        local diff = math.abs(tonumber(stored[3] or 0) - tonumber(current[3] or 0))
-        if diff <= 2 then
-            score = score + 20
-            DebugPrint("AccountAge match (+20)")
-        end
-    end
-    
-    -- Viewport (20 points)
-    if stored[4] == current[4] then
-        score = score + 20
-        DebugPrint("Viewport match (+20)")
-    end
-    
-    -- Performance (20 points - allow +/- 20)
-    if stored[5] and current[5] then
-        local diff = math.abs(tonumber(stored[5] or 0) - tonumber(current[5] or 0))
-        if diff <= 20 then
-            score = score + 20
-            DebugPrint("Performance match (+20)")
-        end
-    end
-    
-    DebugPrint("Total score:", score, "/100")
-    
-    if score >= 80 then
-        return true, "high_confidence"
-    elseif score >= 60 then
-        return true, "medium_confidence"
-    elseif score >= 40 then
-        return false, "low_confidence"
+    if baseMatches and userIdMatches then
+        return true, "both"
+    elseif baseMatches then
+        return true, "base_only"
+    elseif userIdMatches then
+        return true, "userid_only"
     else
         return false, "no_match"
     end
